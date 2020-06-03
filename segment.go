@@ -49,7 +49,6 @@ func (engine *Engine) ForSplitData(strData []string, num int) (TMap, int) {
 				numTokens++
 				tokensMap[strData[i]] = append(tokensMap[strData[i]], numTokens)
 			}
-
 			splitStr += strData[i]
 			if !engine.stopTokens.IsStopToken(splitStr) {
 				numTokens++
@@ -68,7 +67,6 @@ func (engine *Engine) ForSplitData(strData []string, num int) (TMap, int) {
 					}
 				}
 			}
-
 		}
 	}
 

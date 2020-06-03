@@ -64,5 +64,5 @@ func dictJp() {
 
 func main() {
 	dictZh()
-	dictJp()
+	// dictJp()
 }

@@ -1,0 +1,13 @@
+[Server]
+    addr = "0.0.0.0:15000"
+    timeout = "1s"
+
+[Client]
+    dial = "10s"
+    timeout = "10s"
+    zone = "sh001"
+    [Client.breaker]
+    window = "3s"
+    bucket = 10
+    k = 1.5
+    request = 20

@@ -16,7 +16,9 @@
 /*
 
 Package riot is riot engine
+
 */
+
 package riot
 
 import (
@@ -32,13 +34,12 @@ import (
 
 	"sync/atomic"
 
+	"github.com/go-ego/gse"
+	"github.com/go-ego/murmur"
 	"github.com/go-ego/riot/core"
 	"github.com/go-ego/riot/store"
 	"github.com/go-ego/riot/types"
 	"github.com/go-ego/riot/utils"
-
-	"github.com/go-ego/gse"
-	"github.com/go-ego/murmur"
 	"github.com/shirou/gopsutil/mem"
 )
 
@@ -104,14 +105,9 @@ type Engine struct {
 
 // Indexer initialize the indexer channel
 func (engine *Engine) Indexer(options types.EngineOpts) {
-	engine.indexerAddDocChans = make(
-		[]chan indexerAddDocReq, options.NumShards)
-
-	engine.indexerRemoveDocChans = make(
-		[]chan indexerRemoveDocReq, options.NumShards)
-
-	engine.indexerLookupChans = make(
-		[]chan indexerLookupReq, options.NumShards)
+	engine.indexerAddDocChans = make([]chan indexerAddDocReq, options.NumShards)
+	engine.indexerRemoveDocChans = make([]chan indexerRemoveDocReq, options.NumShards)
+	engine.indexerLookupChans = make([]chan indexerLookupReq, options.NumShards)
 
 	for shard := 0; shard < options.NumShards; shard++ {
 		engine.indexerAddDocChans[shard] = make(
@@ -367,8 +363,7 @@ func (engine *Engine) Init(options types.EngineOpts) {
 //      1. 这个函数是线程安全的，请尽可能并发调用以提高索引速度
 //      2. 这个函数调用是非同步的，也就是说在函数返回时有可能文档还没有加入索引中，因此
 //         如果立刻调用Search可能无法查询到这个文档。强制刷新索引请调用FlushIndex函数。
-func (engine *Engine) IndexDoc(docId string, data types.DocData,
-	forceUpdate ...bool) {
+func (engine *Engine) IndexDoc(docId string, data types.DocData, forceUpdate ...bool) {
 	engine.Index(docId, data, forceUpdate...)
 }
 
@@ -396,8 +391,7 @@ func (engine *Engine) Index(docId string, data types.DocData,
 	}
 }
 
-func (engine *Engine) internalIndexDoc(docId string, data types.DocData,
-	forceUpdate bool) {
+func (engine *Engine) internalIndexDoc(docId string, data types.DocData, forceUpdate bool) {
 
 	if !engine.initialized {
 		log.Fatal("The engine must be initialized first.")

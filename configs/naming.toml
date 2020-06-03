@@ -1,0 +1,10 @@
+[Etcd]
+    endpoints = ["127.0.0.1:2379"]
+    dialTimeout = 3
+
+[Instance]
+    zone = "sh001"
+    env = "dev"
+    hostname = "test1"
+    appid = ""
+    addrs = [""]

@@ -12,8 +12,7 @@ var (
 )
 
 func main() {
-	data := types.DocData{Content: `I wonder how, I wonder why
-		, I wonder where they are`}
+	data := types.DocData{Content: `I wonder how, I wonder why, I wonder where they are`}
 	data1 := types.DocData{Content: "所以, 你好, 再见"}
 	data2 := types.DocData{Content: "没有理由"}
 	searcher.Index("1", data)
@@ -32,8 +31,7 @@ func main() {
 	log.Println("searcher mem used percent: ", memPet, perr)
 
 	riotMem, merr := searcher.UsedMem()
-	log.Println("init mem: ", riot.InitMemUsed,
-		"searcher mem: ", riotMem, "To MB: ", riot.ToMB(riotMem), merr)
+	log.Println("init mem: ", riot.InitMemUsed, "searcher mem: ", riotMem, "To MB: ", riot.ToMB(riotMem), merr)
 
 	diskPet, err := riot.DiskPercent()
 	log.Println("searcher use disk percent: ", diskPet, err)

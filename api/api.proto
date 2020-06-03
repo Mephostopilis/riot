@@ -1,0 +1,137 @@
+// 定义项目 API 的 proto 文件 可以同时描述 gRPC 和 HTTP API
+// protobuf 文件参考:
+//  - https://developers.google.com/protocol-buffers/
+syntax = "proto3";
+
+import "github.com/gogo/protobuf/gogoproto/gogo.proto";
+import "google/protobuf/empty.proto";
+import "google/api/annotations.proto";
+
+// package 命名使用 {appid}.{version} 的方式, version 形如 v1, v2 ..
+package riot.service.v1;
+
+// NOTE: 最后请删除这些无用的注释 (゜-゜)つロ
+
+option go_package = "api";
+option (gogoproto.goproto_getters_all) = false;
+
+service Riot {
+  rpc Ping(.google.protobuf.Empty) returns (.google.protobuf.Empty);
+  rpc SayHello(HelloReq) returns (.google.protobuf.Empty);
+  rpc SayHelloURL(HelloReq) returns (HelloResp) {
+    option (google.api.http) = {
+      get : "/riot/say_hello"
+    };
+  };
+  rpc HeartBeat(HeartReq) returns (Reply) {
+    option (google.api.http) = {
+      post : "/riot/heartbeat"
+    };
+  }
+  rpc DocInx(DocReq) returns (Reply) {
+    option (google.api.http) = {
+      post : "/riot/docinx"
+    };
+  }
+  rpc Delete(DeleteReq) returns (Reply) {
+    option (google.api.http) = {
+      post : "/riot/del"
+    };
+  }
+  rpc Search(SearchReq) returns (SearchReply) {
+    option (google.api.http) = {
+      post : "/riot/search"
+    };
+  }
+}
+
+message HelloReq {
+  string name = 1 [ (gogoproto.moretags) = 'form:"name" validate:"required"' ];
+}
+
+message HelloResp { string Content = 1 [ (gogoproto.jsontag) = 'content' ]; }
+
+message User {
+  uint64 ID = 1 [ (gogoproto.jsontag) = 'id' ];
+  string Name = 2 [ (gogoproto.jsontag) = 'name' ];
+  int32 Vip = 3 [ (gogoproto.jsontag) = 'vip' ];
+  int32 VipMode = 4 [ (gogoproto.jsontag) = 'vip_mode' ];
+  int64 VipRemaining = 5 [ (gogoproto.jsontag) = 'vip_remaining' ];
+}
+
+message HeartReq { int32 msg = 1; }
+
+// The request message containing the user's name.
+message DocReq {
+  // uint64 doc_id = 1;
+  string doc_id = 1;
+  string content = 2;
+  bytes attri = 3;
+  repeated TokenData tokens = 4; // list
+  repeated string labels = 5;    //
+  bytes fields = 6;              //
+  bool forceUpdate = 7;
+}
+
+message TokenData {
+  string text = 1;
+  repeated int32 locations = 2;
+}
+
+message DeleteReq { string doc_id = 1; }
+
+// 0 succeed, 1 fail
+message Reply { int32 result = 1; }
+
+message SearchReq {
+  string id = 1; // userid
+  string query = 2;
+  int32 outputOffset = 3;
+  int32 maxOutputs = 4;
+  string time = 5;
+  map<string, bool> docIds = 6; // string
+  Logic logic = 7;
+}
+
+message SearchReply {
+  int32 code = 1;
+  int32 len = 2;
+  int64 timestamp = 3;
+  repeated Text docs = 4;
+}
+
+message Text {
+  string id = 1;
+  // uint64 id = 1;
+  string content = 2;
+  Attri attri = 3;
+  // bytes attri = 3;
+}
+
+message Attri {
+  string title = 1;
+  string author = 2;
+  string time = 3;
+  int64 ts = 4;
+}
+
+message Logic {
+  // 与查询, 必须都存在
+  bool must = 1;
+  // 或查询, 有一个存在即可
+  bool should = 2;
+  // 非查询, 不包含
+  bool notIn = 3;
+
+  Expr expr = 4;
+}
+
+// LogicExpr logic expression options
+message Expr {
+  // mustLabels, with the query that must exist
+  repeated string must = 1;
+  // shouldLabels, there is one can exist
+  repeated string should = 2;
+  // notInLabels, not included
+  repeated string notIn = 3;
+}

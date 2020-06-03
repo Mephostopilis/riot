@@ -1,0 +1,492 @@
+{
+    "swagger": "2.0",
+    "info": {
+        "title": "api.proto",
+        "version": "1"
+    },
+    "schemes": [
+        "http",
+        "https"
+    ],
+    "consumes": [
+        "application/json",
+        "multipart/form-data"
+    ],
+    "produces": [
+        "application/json"
+    ],
+    "paths": {
+        "/riot.service.v1.Riot/Ping": {
+            "get": {
+                "summary": "/riot.service.v1.Riot/Ping",
+                "responses": {
+                    "200": {
+                        "description": "A successful response.",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "code": {
+                                    "type": "integer"
+                                },
+                                "message": {
+                                    "type": "string"
+                                },
+                                "data": {
+                                    "$ref": "#/definitions/.google.protobuf.Empty"
+                                }
+                            }
+                        }
+                    }
+                },
+                "tags": [
+                    "riot.service.v1.Riot"
+                ]
+            }
+        },
+        "/riot.service.v1.Riot/SayHello": {
+            "get": {
+                "summary": "/riot.service.v1.Riot/SayHello",
+                "responses": {
+                    "200": {
+                        "description": "A successful response.",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "code": {
+                                    "type": "integer"
+                                },
+                                "message": {
+                                    "type": "string"
+                                },
+                                "data": {
+                                    "$ref": "#/definitions/.google.protobuf.Empty"
+                                }
+                            }
+                        }
+                    }
+                },
+                "parameters": [
+                    {
+                        "name": "name",
+                        "in": "query",
+                        "required": true,
+                        "type": "string"
+                    }
+                ],
+                "tags": [
+                    "riot.service.v1.Riot"
+                ]
+            }
+        },
+        "/riot/del": {
+            "post": {
+                "summary": "/riot/del",
+                "responses": {
+                    "200": {
+                        "description": "A successful response.",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "code": {
+                                    "type": "integer"
+                                },
+                                "message": {
+                                    "type": "string"
+                                },
+                                "data": {
+                                    "$ref": "#/definitions/.riot.service.v1.Reply"
+                                }
+                            }
+                        }
+                    }
+                },
+                "parameters": [
+                    {
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/.riot.service.v1.DeleteReq"
+                        }
+                    }
+                ],
+                "tags": [
+                    "riot.service.v1.Riot"
+                ]
+            }
+        },
+        "/riot/docinx": {
+            "post": {
+                "summary": "/riot/docinx",
+                "responses": {
+                    "200": {
+                        "description": "A successful response.",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "code": {
+                                    "type": "integer"
+                                },
+                                "message": {
+                                    "type": "string"
+                                },
+                                "data": {
+                                    "$ref": "#/definitions/.riot.service.v1.Reply"
+                                }
+                            }
+                        }
+                    }
+                },
+                "parameters": [
+                    {
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/.riot.service.v1.DocReq"
+                        }
+                    }
+                ],
+                "tags": [
+                    "riot.service.v1.Riot"
+                ]
+            }
+        },
+        "/riot/heartbeat": {
+            "post": {
+                "summary": "/riot/heartbeat",
+                "responses": {
+                    "200": {
+                        "description": "A successful response.",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "code": {
+                                    "type": "integer"
+                                },
+                                "message": {
+                                    "type": "string"
+                                },
+                                "data": {
+                                    "$ref": "#/definitions/.riot.service.v1.Reply"
+                                }
+                            }
+                        }
+                    }
+                },
+                "parameters": [
+                    {
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/.riot.service.v1.HeartReq"
+                        }
+                    }
+                ],
+                "tags": [
+                    "riot.service.v1.Riot"
+                ]
+            }
+        },
+        "/riot/say_hello": {
+            "get": {
+                "summary": "/riot/say_hello",
+                "responses": {
+                    "200": {
+                        "description": "A successful response.",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "code": {
+                                    "type": "integer"
+                                },
+                                "message": {
+                                    "type": "string"
+                                },
+                                "data": {
+                                    "$ref": "#/definitions/.riot.service.v1.HelloResp"
+                                }
+                            }
+                        }
+                    }
+                },
+                "parameters": [
+                    {
+                        "name": "name",
+                        "in": "query",
+                        "required": true,
+                        "type": "string"
+                    }
+                ],
+                "tags": [
+                    "riot.service.v1.Riot"
+                ]
+            }
+        },
+        "/riot/search": {
+            "post": {
+                "summary": "/riot/search",
+                "responses": {
+                    "200": {
+                        "description": "A successful response.",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "code": {
+                                    "type": "integer"
+                                },
+                                "message": {
+                                    "type": "string"
+                                },
+                                "data": {
+                                    "$ref": "#/definitions/.riot.service.v1.SearchReply"
+                                }
+                            }
+                        }
+                    }
+                },
+                "parameters": [
+                    {
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/.riot.service.v1.SearchReq"
+                        }
+                    }
+                ],
+                "tags": [
+                    "riot.service.v1.Riot"
+                ]
+            }
+        }
+    },
+    "definitions": {
+        ".google.protobuf.Empty": {
+            "type": "object",
+            "properties": {},
+            "description": "A generic empty message that you can re-use to avoid defining duplicated\n empty messages in your APIs. A typical example is to use it as the request\n or the response type of an API method. For instance:\n\n     service Foo {\n       rpc Bar(google.protobuf.Empty) returns (google.protobuf.Empty);\n     }\n\n The JSON representation for `Empty` is empty JSON object `{}`."
+        },
+        ".riot.service.v1.Attri": {
+            "type": "object",
+            "properties": {
+                "title": {
+                    "type": "string"
+                },
+                "author": {
+                    "type": "string"
+                },
+                "time": {
+                    "type": "string"
+                },
+                "ts": {
+                    "type": "integer"
+                }
+            }
+        },
+        ".riot.service.v1.DeleteReq": {
+            "type": "object",
+            "properties": {
+                "doc_id": {
+                    "type": "string"
+                }
+            }
+        },
+        ".riot.service.v1.DocReq": {
+            "type": "object",
+            "properties": {
+                "doc_id": {
+                    "type": "string",
+                    "description": "uint64 doc_id = 1;"
+                },
+                "content": {
+                    "type": "string"
+                },
+                "attri": {
+                    "type": "string"
+                },
+                "tokens": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/.riot.service.v1.TokenData"
+                    }
+                },
+                "labels": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "fields": {
+                    "type": "string"
+                },
+                "forceUpdate": {
+                    "type": "boolean"
+                }
+            },
+            "description": "The request message containing the user's name."
+        },
+        ".riot.service.v1.Expr": {
+            "type": "object",
+            "properties": {
+                "must": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "description": "mustLabels, with the query that must exist"
+                },
+                "should": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "description": "shouldLabels, there is one can exist"
+                },
+                "notIn": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "description": "notInLabels, not included"
+                }
+            },
+            "description": "LogicExpr logic expression options"
+        },
+        ".riot.service.v1.HeartReq": {
+            "type": "object",
+            "properties": {
+                "msg": {
+                    "type": "integer"
+                }
+            }
+        },
+        ".riot.service.v1.HelloReq": {
+            "type": "object",
+            "properties": {
+                "name": {
+                    "type": "string"
+                }
+            },
+            "required": [
+                "name"
+            ]
+        },
+        ".riot.service.v1.HelloResp": {
+            "type": "object",
+            "properties": {
+                "content": {
+                    "type": "string"
+                }
+            }
+        },
+        ".riot.service.v1.Logic": {
+            "type": "object",
+            "properties": {
+                "must": {
+                    "type": "boolean",
+                    "description": "与查询, 必须都存在"
+                },
+                "should": {
+                    "type": "boolean",
+                    "description": "或查询, 有一个存在即可"
+                },
+                "notIn": {
+                    "type": "boolean",
+                    "description": "非查询, 不包含"
+                },
+                "expr": {
+                    "$ref": "#/definitions/.riot.service.v1.Expr"
+                }
+            }
+        },
+        ".riot.service.v1.Reply": {
+            "type": "object",
+            "properties": {
+                "result": {
+                    "type": "integer"
+                }
+            },
+            "description": "0 succeed, 1 fail"
+        },
+        ".riot.service.v1.SearchReply": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "type": "integer"
+                },
+                "len": {
+                    "type": "integer"
+                },
+                "timestamp": {
+                    "type": "integer"
+                },
+                "docs": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/.riot.service.v1.Text"
+                    }
+                }
+            }
+        },
+        ".riot.service.v1.SearchReq": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "string"
+                },
+                "query": {
+                    "type": "string"
+                },
+                "outputOffset": {
+                    "type": "integer"
+                },
+                "maxOutputs": {
+                    "type": "integer"
+                },
+                "time": {
+                    "type": "string"
+                },
+                "docIds": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "boolean"
+                    }
+                },
+                "logic": {
+                    "$ref": "#/definitions/.riot.service.v1.Logic"
+                }
+            }
+        },
+        ".riot.service.v1.Text": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "string"
+                },
+                "content": {
+                    "type": "string",
+                    "description": "uint64 id = 1;"
+                },
+                "attri": {
+                    "$ref": "#/definitions/.riot.service.v1.Attri"
+                }
+            }
+        },
+        ".riot.service.v1.TokenData": {
+            "type": "object",
+            "properties": {
+                "text": {
+                    "type": "string"
+                },
+                "locations": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                }
+            }
+        }
+    }
+}
