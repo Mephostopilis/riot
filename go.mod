@@ -17,6 +17,7 @@ require (
 	github.com/go-vgo/gt v0.0.0-20191129122048-b43b4ceeec26
 	github.com/go-vgo/gt/conf v0.0.0-20191129122048-b43b4ceeec26
 	github.com/gogo/protobuf v1.3.1
+	github.com/golang/protobuf v1.3.5
 	github.com/huichen/gobo v0.0.0-20130808212258-a483eda6582e
 	github.com/pelletier/go-toml v1.6.0 // indirect
 	github.com/shirou/gopsutil v2.19.11+incompatible
@@ -24,5 +25,6 @@ require (
 	github.com/vcaesar/tt v0.0.0-20191103173835-6896a351024b
 	go.etcd.io/bbolt v1.3.4
 	golang.org/x/net v0.0.0-20200324143707-d3edc9973b7e
+	google.golang.org/genproto v0.0.0-20200402124713-8ff61da6d932
 	google.golang.org/grpc v1.28.1
 )

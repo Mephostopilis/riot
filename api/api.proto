@@ -43,6 +43,11 @@ service Riot {
       post : "/riot/search"
     };
   }
+  rpc WgDist(WgDistReq) returns (WgDistResp) {
+    option (google.api.http) = {
+      post : "/riot/search"
+    };
+  }
 }
 
 message HelloReq {
@@ -135,3 +140,10 @@ message Expr {
   // notInLabels, not included
   repeated string notIn = 3;
 }
+
+message WgDistReq {
+  string UserId = 1
+      [ (gogoproto.moretags) = 'form:"userid" validate:"required"' ];
+}
+
+message WgDistResp {}

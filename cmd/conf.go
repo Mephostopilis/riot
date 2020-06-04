@@ -12,7 +12,7 @@
 // License for the specific language governing permissions and limitations
 // under the License.
 
-package com
+package main
 
 // Config search config options
 type Config struct {

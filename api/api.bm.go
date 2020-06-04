@@ -15,8 +15,8 @@ package api
 import (
 	"context"
 
-	bm "github.com/bilibili/kratos/pkg/net/http/blademaster"
-	"github.com/bilibili/kratos/pkg/net/http/blademaster/binding"
+	bm "github.com/go-kratos/kratos/pkg/net/http/blademaster"
+	"github.com/go-kratos/kratos/pkg/net/http/blademaster/binding"
 )
 import google_protobuf1 "github.com/golang/protobuf/ptypes/empty"
 
@@ -32,6 +32,7 @@ var PathRiotHeartBeat = "/riot/heartbeat"
 var PathRiotDocInx = "/riot/docinx"
 var PathRiotDelete = "/riot/del"
 var PathRiotSearch = "/riot/search"
+var PathRiotWgDist = "/riot/search"
 
 // RiotBMServer is the server API for Riot service.
 type RiotBMServer interface {
@@ -48,6 +49,8 @@ type RiotBMServer interface {
 	Delete(ctx context.Context, req *DeleteReq) (resp *Reply, err error)
 
 	Search(ctx context.Context, req *SearchReq) (resp *SearchReply, err error)
+
+	WgDist(ctx context.Context, req *WgDistReq) (resp *WgDistResp, err error)
 }
 
 var RiotSvc RiotBMServer
@@ -115,6 +118,15 @@ func riotSearch(c *bm.Context) {
 	c.JSON(resp, err)
 }
 
+func riotWgDist(c *bm.Context) {
+	p := new(WgDistReq)
+	if err := c.BindWith(p, binding.Default(c.Request.Method, c.Request.Header.Get("Content-Type"))); err != nil {
+		return
+	}
+	resp, err := RiotSvc.WgDist(c, p)
+	c.JSON(resp, err)
+}
+
 // RegisterRiotBMServer Register the blademaster route
 func RegisterRiotBMServer(e *bm.Engine, server RiotBMServer) {
 	RiotSvc = server
@@ -125,4 +137,5 @@ func RegisterRiotBMServer(e *bm.Engine, server RiotBMServer) {
 	e.POST("/riot/docinx", riotDocInx)
 	e.POST("/riot/del", riotDelete)
 	e.POST("/riot/search", riotSearch)
+	e.POST("/riot/search", riotWgDist)
 }

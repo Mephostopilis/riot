@@ -24,9 +24,21 @@ func main() {
 	defer log.Close()
 	log.Info("riot start")
 
-	svc := service.New()
-	grpcSrv := grpc.New(svc)
-	httpSrv := http.New(svc)
+	svc, err := service.New()
+	if err != nil {
+		log.Error("service ")
+		return
+	}
+	grpcSrv, err := grpc.New(svc)
+	if err != nil {
+		log.Error("service ")
+		return
+	}
+	httpSrv, err := http.New(svc)
+	if err != nil {
+		log.Error("service ")
+		return
+	}
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, syscall.SIGHUP, syscall.SIGQUIT, syscall.SIGTERM, syscall.SIGINT)
 	for s := range c {
@@ -34,9 +46,9 @@ func main() {
 		switch s {
 		case syscall.SIGQUIT, syscall.SIGTERM, syscall.SIGINT:
 			ctx, cancel := context.WithTimeout(context.Background(), 35*time.Second)
-			// if err := grpcSrv.Shutdown(ctx); err != nil {
-			// 	log.Error("grpcSrv.Shutdown error(%v)", err)
-			// }
+			if err := grpcSrv.Shutdown(ctx); err != nil {
+				log.Error("grpcSrv.Shutdown error(%v)", err)
+			}
 			if err := httpSrv.Shutdown(ctx); err != nil {
 				log.Error("httpSrv.Shutdown error(%v)", err)
 			}

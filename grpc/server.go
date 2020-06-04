@@ -8,7 +8,7 @@ import (
 )
 
 // New new a grpc server.
-func New(svc pb.SsServer) (ws *warden.Server, err error) {
+func New(svc pb.RiotServer) (ws *warden.Server, err error) {
 	var (
 		cfg warden.ServerConfig
 		ct  paladin.TOML
@@ -20,7 +20,7 @@ func New(svc pb.SsServer) (ws *warden.Server, err error) {
 		return
 	}
 	ws = warden.NewServer(&cfg)
-	pb.RegisterSsServer(ws.Server(), svc)
+	pb.RegisterRiotServer(ws.Server(), svc)
 	ws, err = ws.Start()
 	return
 }

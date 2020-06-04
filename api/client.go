@@ -14,7 +14,7 @@ const AppID = "service.riot"
 const target = "direct://default/127.0.0.1:9007" // NOTE: example
 
 // NewClient new grpc client
-func NewClient(cfg *warden.ClientConfig, opts ...grpc.DialOption) (SsClient, error) {
+func NewClient(cfg *warden.ClientConfig, opts ...grpc.DialOption) (RiotClient, error) {
 	client := warden.NewClient(cfg, opts...)
 	// cc, err := client.Dial(context.Background(), fmt.Sprintf("discovery://default/%s", AppID))
 	cc, err := client.Dial(context.Background(), fmt.Sprintf("etcd://default/%s", AppID))

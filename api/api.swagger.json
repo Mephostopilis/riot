@@ -240,7 +240,7 @@
                                     "type": "string"
                                 },
                                 "data": {
-                                    "$ref": "#/definitions/.riot.service.v1.SearchReply"
+                                    "$ref": "#/definitions/.riot.service.v1.WgDistResp"
                                 }
                             }
                         }
@@ -252,7 +252,7 @@
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/.riot.service.v1.SearchReq"
+                            "$ref": "#/definitions/.riot.service.v1.WgDistReq"
                         }
                     }
                 ],
@@ -487,6 +487,21 @@
                     }
                 }
             }
+        },
+        ".riot.service.v1.WgDistReq": {
+            "type": "object",
+            "properties": {
+                "userid": {
+                    "type": "string"
+                }
+            },
+            "required": [
+                "userid"
+            ]
+        },
+        ".riot.service.v1.WgDistResp": {
+            "type": "object",
+            "properties": {}
         }
     }
 }
