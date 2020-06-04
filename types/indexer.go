@@ -20,6 +20,7 @@ Package types is riot types
 package types
 
 // DocIndex document's index
+// 正向索引
 type DocIndex struct {
 	// DocId 文本的 DocId
 	DocId string

@@ -23,7 +23,6 @@ import (
 	"encoding/gob"
 
 	"github.com/go-ego/murmur"
-	"github.com/go-ego/riot/core"
 	"github.com/go-ego/riot/types"
 	toml "github.com/go-vgo/gt/conf"
 )
@@ -105,7 +104,7 @@ func NewEngine(conf ...interface{}) *Engine {
 // HasDoc if the document is exist return true
 func (engine *Engine) HasDoc(docId string) bool {
 	for shard := 0; shard < engine.initOptions.NumShards; shard++ {
-		engine.indexers = append(engine.indexers, core.Indexer{})
+		// engine.indexers = append(engine.indexers, core.Indexer{})
 
 		has := engine.indexers[shard].HasDoc(docId)
 

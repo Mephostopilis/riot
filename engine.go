@@ -80,8 +80,8 @@ type Engine struct {
 	initOptions types.EngineOpts
 	initialized bool
 
-	indexers   []core.Indexer
-	rankers    []core.Ranker
+	indexers   []*core.Indexer
+	rankers    []*core.Ranker
 	segmenter  gse.Segmenter
 	loaded     bool
 	stopTokens StopTokens
@@ -298,16 +298,15 @@ func (engine *Engine) Init(options types.EngineOpts) {
 
 	// 初始化索引器和排序器
 	for shard := 0; shard < options.NumShards; shard++ {
-		engine.indexers = append(engine.indexers, core.Indexer{})
-		engine.indexers[shard].Init(*options.IndexerOpts)
+		indexer, _ := core.NewIndexer(*options.IndexerOpts)
+		engine.indexers[shard] = indexer
 
-		engine.rankers = append(engine.rankers, core.Ranker{})
-		engine.rankers[shard].Init(options.IDOnly)
+		ranker, _ := core.NewRanker(options.IDOnly)
+		engine.rankers[shard] = ranker
 	}
 
 	// 初始化分词器通道
-	engine.segmenterChan = make(
-		chan segmenterReq, options.NumGseThreads)
+	engine.segmenterChan = make(chan segmenterReq, options.NumGseThreads)
 
 	// 初始化索引器通道
 	engine.Indexer(options)

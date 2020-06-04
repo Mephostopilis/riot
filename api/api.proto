@@ -48,6 +48,11 @@ service Riot {
       post : "/riot/search"
     };
   }
+  rpc Kill(KillReq) returns (KillResp) {
+    option (google.api.http) = {
+      post : "/riot/kill"
+    };
+  }
 }
 
 message HelloReq {
@@ -147,3 +152,7 @@ message WgDistReq {
 }
 
 message WgDistResp {}
+
+message KillReq {}
+
+message KillResp {}

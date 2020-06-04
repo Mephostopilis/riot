@@ -12,20 +12,17 @@
 // License for the specific language governing permissions and limitations
 // under the License.
 
-package main
+package riot
 
 // Config search config options
 type Config struct {
-	Engine Engine
-	Etcd   Etcd
-	Rpc    Rpc
+	Engine EngineConfig
 
-	// Has  [][]string
 	Url []string
 }
 
 // Engine search engine options
-type Engine struct {
+type EngineConfig struct {
 	Mode  string
 	Using int
 
@@ -44,19 +41,4 @@ type Engine struct {
 	Relation string
 	Time     string
 	Ts       int64
-}
-
-// Rpc search rpc options
-type Rpc struct {
-	GrpcPort []string `toml:"grpc_port"`
-	// GrpcPort []int    `toml:"grpc_port"`
-	DistPort []string `toml:"dist_port"`
-	Port     string
-}
-
-// Etcd search etcd options
-type Etcd struct {
-	Addr     string
-	SverName string `toml:"sver_name"`
-	Port     []int  `toml:"port"`
 }

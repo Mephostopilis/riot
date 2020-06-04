@@ -20,7 +20,6 @@ Package core is riot core
 package core
 
 import (
-	"log"
 	"math"
 	"sort"
 	"sync"
@@ -28,6 +27,14 @@ import (
 	"github.com/go-ego/riot/types"
 	"github.com/go-ego/riot/utils"
 )
+
+// KeywordIndices 反向索引表的一行，收集了一个搜索键出现的所有文档，按照DocId从小到大排序。
+type KeywordIndices struct {
+	// 下面的切片是否为空，取决于初始化时IndexType的值
+	docIds      []string  // 全部类型都有
+	frequencies []float32 // IndexType == FrequenciesIndex
+	locations   [][]int   // IndexType == LocsIndex
+}
 
 // Indexer 索引器
 type Indexer struct {
@@ -52,7 +59,6 @@ type Indexer struct {
 	}
 
 	initOptions types.IndexerOpts
-	initialized bool
 
 	// 这实际上是总文档数的一个近似
 	numDocs uint64
@@ -65,31 +71,20 @@ type Indexer struct {
 	docTokenLens map[string]float32
 }
 
-// KeywordIndices 反向索引表的一行，收集了一个搜索键出现的所有文档，按照DocId从小到大排序。
-type KeywordIndices struct {
-	// 下面的切片是否为空，取决于初始化时IndexType的值
-	docIds      []string  // 全部类型都有
-	frequencies []float32 // IndexType == FrequenciesIndex
-	locations   [][]int   // IndexType == LocsIndex
-}
-
 // Init 初始化索引器
-func (indexer *Indexer) Init(options types.IndexerOpts) {
-	if indexer.initialized == true {
-		log.Fatal("The Indexer can not be initialized twice.")
-	}
+func NewIndexer(options types.IndexerOpts) (indexer *Indexer, err error) {
+	indexer = new(Indexer)
+
 	options.Init()
 	indexer.initOptions = options
-	indexer.initialized = true
 
 	indexer.tableLock.table = make(map[string]*KeywordIndices)
 	indexer.tableLock.docsState = make(map[string]int)
-	indexer.addCacheLock.addCache = make(
-		[]*types.DocIndex, indexer.initOptions.DocCacheSize)
+	indexer.addCacheLock.addCache = make([]*types.DocIndex, options.DocCacheSize)
 
-	indexer.removeCacheLock.removeCache = make(
-		[]string, indexer.initOptions.DocCacheSize*2)
+	indexer.removeCacheLock.removeCache = make([]string, options.DocCacheSize*2)
 	indexer.docTokenLens = make(map[string]float32)
+	return
 }
 
 // getDocId 从 KeywordIndices 中得到第i个文档的 DocId
@@ -114,9 +109,6 @@ func (indexer *Indexer) getIndexLen(ti *KeywordIndices) int {
 
 // AddDocToCache 向 ADDCACHE 中加入一个文档
 func (indexer *Indexer) AddDocToCache(doc *types.DocIndex, forceUpdate bool) {
-	if indexer.initialized == false {
-		log.Fatal("The Indexer has not been initialized.")
-	}
 
 	indexer.addCacheLock.Lock()
 	if doc != nil {
@@ -177,9 +169,6 @@ func (indexer *Indexer) AddDocToCache(doc *types.DocIndex, forceUpdate bool) {
 
 // AddDocs 向反向索引表中加入 ADDCACHE 中所有文档
 func (indexer *Indexer) AddDocs(docs *types.DocsIndex) {
-	if indexer.initialized == false {
-		log.Fatal("The Indexer has not been initialized.")
-	}
 
 	indexer.tableLock.Lock()
 	defer indexer.tableLock.Unlock()
@@ -258,9 +247,6 @@ func (indexer *Indexer) AddDocs(docs *types.DocsIndex) {
 // RemoveDocToCache 向 REMOVECACHE 中加入一个待删除文档
 // 返回值表示文档是否在索引表中被删除
 func (indexer *Indexer) RemoveDocToCache(docId string, forceUpdate bool) bool {
-	if indexer.initialized == false {
-		log.Fatal("The Indexer has not been initialized.")
-	}
 
 	indexer.removeCacheLock.Lock()
 	if docId != "0" {
@@ -297,9 +283,6 @@ func (indexer *Indexer) RemoveDocToCache(docId string, forceUpdate bool) bool {
 
 // RemoveDocs 向反向索引表中删除 REMOVECACHE 中所有文档
 func (indexer *Indexer) RemoveDocs(docs *types.DocsId) {
-	if indexer.initialized == false {
-		log.Fatal("The Indexer has not been initialized.")
-	}
 
 	indexer.tableLock.Lock()
 	defer indexer.tableLock.Unlock()
@@ -371,10 +354,6 @@ func (indexer *Indexer) RemoveDocs(docs *types.DocsId) {
 func (indexer *Indexer) Lookup(
 	tokens, labels []string, docIds map[string]bool, countDocsOnly bool,
 	logic ...types.Logic) (docs []types.IndexedDoc, numDocs int) {
-
-	if indexer.initialized == false {
-		log.Fatal("The Indexer has not been initialized.")
-	}
 
 	indexer.tableLock.RLock()
 	defer indexer.tableLock.RUnlock()

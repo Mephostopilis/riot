@@ -16,7 +16,6 @@
 package core
 
 import (
-	"log"
 	"sort"
 	"sync"
 
@@ -36,16 +35,11 @@ type Ranker struct {
 		attri   map[string]interface{}
 	}
 
-	idOnly      bool
-	initialized bool
+	idOnly bool
 }
 
 // Init init ranker
-func (ranker *Ranker) Init(onlyID ...bool) {
-	if ranker.initialized == true {
-		log.Fatal("The Ranker can not be initialized twice.")
-	}
-	ranker.initialized = true
+func NewRanker(onlyID ...bool) (ranker *Ranker, err error) {
 
 	if len(onlyID) > 0 {
 		ranker.idOnly = onlyID[0]
@@ -59,6 +53,7 @@ func (ranker *Ranker) Init(onlyID ...bool) {
 		ranker.lock.content = make(map[string]string)
 		ranker.lock.attri = make(map[string]interface{})
 	}
+	return
 }
 
 // AddDoc add doc
@@ -66,9 +61,6 @@ func (ranker *Ranker) Init(onlyID ...bool) {
 func (ranker *Ranker) AddDoc(
 	// docId uint64, fields interface{}, content string, attri interface{}) {
 	docId string, fields interface{}, content ...interface{}) {
-	if ranker.initialized == false {
-		log.Fatal("The Ranker has not been initialized.")
-	}
 
 	ranker.lock.Lock()
 	ranker.lock.fields[docId] = fields
@@ -91,9 +83,6 @@ func (ranker *Ranker) AddDoc(
 
 // RemoveDoc 删除某个文档的评分字段
 func (ranker *Ranker) RemoveDoc(docId string) {
-	if ranker.initialized == false {
-		log.Fatal("The Ranker has not been initialized.")
-	}
 
 	ranker.lock.Lock()
 	delete(ranker.lock.fields, docId)
@@ -121,8 +110,7 @@ func maxOutput(options types.RankOpts, docsLen int) (int, int) {
 	return start, end
 }
 
-func (ranker *Ranker) rankOutIDs(docs []types.IndexedDoc, options types.RankOpts,
-	countDocsOnly bool) (outputDocs types.ScoredIDs, numDocs int) {
+func (ranker *Ranker) rankOutIDs(docs []types.IndexedDoc, options types.RankOpts, countDocsOnly bool) (outputDocs types.ScoredIDs, numDocs int) {
 	for _, d := range docs {
 		ranker.lock.RLock()
 		// 判断 doc 是否存在
@@ -154,8 +142,7 @@ func (ranker *Ranker) rankOutIDs(docs []types.IndexedDoc, options types.RankOpts
 }
 
 // RankDocID rank docs by types.ScoredIDs
-func (ranker *Ranker) RankDocID(docs []types.IndexedDoc,
-	options types.RankOpts, countDocsOnly bool) (types.ScoredIDs, int) {
+func (ranker *Ranker) RankDocID(docs []types.IndexedDoc, options types.RankOpts, countDocsOnly bool) (types.ScoredIDs, int) {
 
 	outputDocs, numDocs := ranker.rankOutIDs(docs, options, countDocsOnly)
 
@@ -245,10 +232,6 @@ func (ranker *Ranker) RankDocs(docs []types.IndexedDoc,
 // 给文档评分并排序
 func (ranker *Ranker) Rank(docs []types.IndexedDoc,
 	options types.RankOpts, countDocsOnly bool) (interface{}, int) {
-
-	if ranker.initialized == false {
-		log.Fatal("The Ranker has not been initialized.")
-	}
 
 	// 对每个文档评分
 	if ranker.idOnly {

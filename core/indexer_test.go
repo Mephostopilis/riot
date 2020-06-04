@@ -4,12 +4,11 @@ import (
 	"testing"
 
 	"github.com/go-ego/riot/types"
-	"github.com/vcaesar/tt"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestAddKeywords(t *testing.T) {
-	var indexer Indexer
-	indexer.Init(types.IndexerOpts{IndexType: types.LocsIndex})
+	indexer, _ := NewIndexer(types.IndexerOpts{IndexType: types.LocsIndex})
 	indexer.AddDocToCache(&types.DocIndex{
 		DocId:    "1",
 		Keywords: []types.KeywordIndex{{"token1", 0, []int{}}},
@@ -36,17 +35,15 @@ func TestAddKeywords(t *testing.T) {
 	}, false)
 	indexer.AddDocToCache(nil, true)
 
-	tt.Expect(t, "", indicesToString(&indexer, "token1"))
-	tt.Expect(t, "1 2 ", indicesToString(&indexer, "token2"))
-	tt.Expect(t, "3 ", indicesToString(&indexer, "token3"))
-	tt.Expect(t, "7 ", indicesToString(&indexer, "token77"))
+	assert.Equal(t, "", indicesToString(indexer, "token1"))
+	assert.Equal(t, "1 2", indicesToString(indexer, "token2"))
+	assert.Equal(t, "3 ", indicesToString(indexer, "token3"))
+	assert.Equal(t, "7 ", indicesToString(indexer, "token77"))
 }
 
 func TestRemoveDocToCache(t *testing.T) {
-	var indexer Indexer
-	indexer.Init(types.IndexerOpts{IndexType: types.LocsIndex})
+	indexer, _ := NewIndexer(types.IndexerOpts{IndexType: types.LocsIndex})
 
-	// doc1 = "token2 token3"
 	indexer.AddDocToCache(&types.DocIndex{
 		DocId: "1",
 		Keywords: []types.KeywordIndex{
@@ -64,9 +61,9 @@ func TestRemoveDocToCache(t *testing.T) {
 		},
 	}, true)
 
-	tt.Expect(t, "2 ", indicesToString(&indexer, "token1"))
-	tt.Expect(t, "1 2 ", indicesToString(&indexer, "token2"))
-	tt.Expect(t, "1 ", indicesToString(&indexer, "token3"))
+	assert.Equal(t, "2 ", indicesToString(indexer, "token1"))
+	assert.Equal(t, "1 2 ", indicesToString(indexer, "token2"))
+	assert.Equal(t, "1 ", indicesToString(indexer, "token3"))
 
 	indexer.RemoveDocToCache("2", false)
 	// doc1 = "token1 token3"
@@ -78,9 +75,9 @@ func TestRemoveDocToCache(t *testing.T) {
 		},
 	}, true)
 
-	tt.Expect(t, "1 ", indicesToString(&indexer, "token1"))
-	tt.Expect(t, "", indicesToString(&indexer, "token2"))
-	tt.Expect(t, "1 ", indicesToString(&indexer, "token3"))
+	assert.Equal(t, "1 ", indicesToString(indexer, "token1"))
+	assert.Equal(t, "", indicesToString(indexer, "token2"))
+	assert.Equal(t, "1 ", indicesToString(indexer, "token3"))
 
 	// doc2 = "token1 token2 token3"
 	indexer.AddDocToCache(&types.DocIndex{
@@ -92,9 +89,9 @@ func TestRemoveDocToCache(t *testing.T) {
 		},
 	}, true)
 
-	tt.Expect(t, "1 2 ", indicesToString(&indexer, "token1"))
-	tt.Expect(t, "2 ", indicesToString(&indexer, "token2"))
-	tt.Expect(t, "1 2 ", indicesToString(&indexer, "token3"))
+	assert.Equal(t, "1 2 ", indicesToString(indexer, "token1"))
+	assert.Equal(t, "2 ", indicesToString(indexer, "token2"))
+	assert.Equal(t, "1 2 ", indicesToString(indexer, "token3"))
 
 	// doc3 = "token1 token3"
 	indexer.AddDocToCache(&types.DocIndex{
@@ -106,9 +103,9 @@ func TestRemoveDocToCache(t *testing.T) {
 	}, true)
 
 	indexer.RemoveDocToCache("3", true)
-	tt.Expect(t, "1 2 ", indicesToString(&indexer, "token1"))
-	tt.Expect(t, "2 ", indicesToString(&indexer, "token2"))
-	tt.Expect(t, "1 2 ", indicesToString(&indexer, "token3"))
+	assert.Equal(t, "1 2 ", indicesToString(indexer, "token1"))
+	assert.Equal(t, "2 ", indicesToString(indexer, "token2"))
+	assert.Equal(t, "1 2 ", indicesToString(indexer, "token3"))
 
 	// doc2 = "token1 token2 token3"
 	indexer.AddDocToCache(&types.DocIndex{
@@ -128,14 +125,13 @@ func TestRemoveDocToCache(t *testing.T) {
 		},
 	}, true)
 
-	tt.Expect(t, "1 3 ", indicesToString(&indexer, "token1"))
-	tt.Expect(t, "2 3 ", indicesToString(&indexer, "token2"))
-	tt.Expect(t, "1 2 ", indicesToString(&indexer, "token3"))
+	assert.Equal(t, "1 3 ", indicesToString(indexer, "token1"))
+	assert.Equal(t, "2 3 ", indicesToString(indexer, "token2"))
+	assert.Equal(t, "1 2 ", indicesToString(indexer, "token3"))
 }
 
 func TestLookupLocsIndex(t *testing.T) {
-	var indexer Indexer
-	indexer.Init(types.IndexerOpts{IndexType: types.LocsIndex})
+	indexer, _ := NewIndexer(types.IndexerOpts{IndexType: types.LocsIndex})
 	// doc1 = "token2 token3"
 	indexer.AddDocToCache(&types.DocIndex{
 		DocId: "1",
@@ -189,49 +185,48 @@ func TestLookupLocsIndex(t *testing.T) {
 		},
 	}, true)
 
-	tt.Expect(t, "2 3 7 ", indicesToString(&indexer, "token1"))
-	tt.Expect(t, "1 2 3 4 ", indicesToString(&indexer, "token2"))
-	tt.Expect(t, "1 2 7 9 ", indicesToString(&indexer, "token3"))
+	assert.Equal(t, "2 3 7 ", indicesToString(indexer, "token1"))
+	assert.Equal(t, "1 2 3 4 ", indicesToString(indexer, "token2"))
+	assert.Equal(t, "1 2 7 9 ", indicesToString(indexer, "token3"))
 
-	tt.Expect(t, "", indexedDocsToString(indexer.Lookup(
+	assert.Equal(t, "", indexedDocsToString(indexer.Lookup(
 		[]string{"token4"}, []string{}, nil, false)))
 
-	tt.Expect(t, "[7 0 [0]] [3 0 [0]] [2 0 [0]] ",
+	assert.Equal(t, "[7 0 [0]] [3 0 [0]] [2 0 [0]] ",
 		indexedDocsToString(indexer.Lookup(
 			[]string{"token1"}, []string{}, nil, false)))
-	tt.Expect(t, "", indexedDocsToString(indexer.Lookup(
+	assert.Equal(t, "", indexedDocsToString(indexer.Lookup(
 		[]string{"token1", "token4"}, []string{}, nil, false)))
 
-	tt.Expect(t, "[3 1 [0 7]] [2 1 [0 7]] ",
+	assert.Equal(t, "[3 1 [0 7]] [2 1 [0 7]] ",
 		indexedDocsToString(indexer.Lookup(
 			[]string{"token1", "token2"}, []string{}, nil, false)))
-	tt.Expect(t, "[3 13 [7 0]] [2 13 [7 0]] ",
+	assert.Equal(t, "[3 13 [7 0]] [2 13 [7 0]] ",
 		indexedDocsToString(indexer.Lookup(
 			[]string{"token2", "token1"}, []string{}, nil, false)))
-	tt.Expect(t, "[7 1 [0 7]] [2 8 [0 14]] ",
+	assert.Equal(t, "[7 1 [0 7]] [2 8 [0 14]] ",
 		indexedDocsToString(indexer.Lookup(
 			[]string{"token1", "token3"}, []string{}, nil, false)))
-	tt.Expect(t, "[7 13 [7 0]] [2 20 [14 0]] ",
+	assert.Equal(t, "[7 13 [7 0]] [2 20 [14 0]] ",
 		indexedDocsToString(indexer.Lookup(
 			[]string{"token3", "token1"}, []string{}, nil, false)))
-	tt.Expect(t, "[2 1 [7 14]] [1 1 [0 7]] ",
+	assert.Equal(t, "[2 1 [7 14]] [1 1 [0 7]] ",
 		indexedDocsToString(indexer.Lookup(
 			[]string{"token2", "token3"}, []string{}, nil, false)))
-	tt.Expect(t, "[2 13 [14 7]] [1 13 [7 0]] ",
+	assert.Equal(t, "[2 13 [14 7]] [1 13 [7 0]] ",
 		indexedDocsToString(indexer.Lookup(
 			[]string{"token3", "token2"}, []string{}, nil, false)))
 
-	tt.Expect(t, "[2 2 [0 7 14]] ",
+	assert.Equal(t, "[2 2 [0 7 14]] ",
 		indexedDocsToString(indexer.Lookup(
 			[]string{"token1", "token2", "token3"}, []string{}, nil, false)))
-	tt.Expect(t, "[2 26 [14 7 0]] ",
+	assert.Equal(t, "[2 26 [14 7 0]] ",
 		indexedDocsToString(indexer.Lookup(
 			[]string{"token3", "token2", "token1"}, []string{}, nil, false)))
 }
 
 func TestLookupDocIdsIndex(t *testing.T) {
-	var indexer Indexer
-	indexer.Init(types.IndexerOpts{IndexType: types.DocIdsIndex})
+	indexer, _ := NewIndexer(types.IndexerOpts{IndexType: types.DocIdsIndex})
 	// doc1 = "token2 token3"
 	indexer.AddDocToCache(&types.DocIndex{
 		DocId: "1",
@@ -285,49 +280,48 @@ func TestLookupDocIdsIndex(t *testing.T) {
 		},
 	}, true)
 
-	tt.Expect(t, "2 3 7 ", indicesToString(&indexer, "token1"))
-	tt.Expect(t, "1 2 3 4 ", indicesToString(&indexer, "token2"))
-	tt.Expect(t, "1 2 7 9 ", indicesToString(&indexer, "token3"))
+	assert.Equal(t, "2 3 7 ", indicesToString(indexer, "token1"))
+	assert.Equal(t, "1 2 3 4 ", indicesToString(indexer, "token2"))
+	assert.Equal(t, "1 2 7 9 ", indicesToString(indexer, "token3"))
 
-	tt.Expect(t, "", indexedDocsToString(indexer.Lookup(
+	assert.Equal(t, "", indexedDocsToString(indexer.Lookup(
 		[]string{"token4"}, []string{}, nil, false)))
 
-	tt.Expect(t, "[7 0 []] [3 0 []] [2 0 []] ",
+	assert.Equal(t, "[7 0 []] [3 0 []] [2 0 []] ",
 		indexedDocsToString(indexer.Lookup(
 			[]string{"token1"}, []string{}, nil, false)))
-	tt.Expect(t, "", indexedDocsToString(indexer.Lookup(
+	assert.Equal(t, "", indexedDocsToString(indexer.Lookup(
 		[]string{"token1", "token4"}, []string{}, nil, false)))
 
-	tt.Expect(t, "[3 0 []] [2 0 []] ",
+	assert.Equal(t, "[3 0 []] [2 0 []] ",
 		indexedDocsToString(indexer.Lookup(
 			[]string{"token1", "token2"}, []string{}, nil, false)))
-	tt.Expect(t, "[3 0 []] [2 0 []] ",
+	assert.Equal(t, "[3 0 []] [2 0 []] ",
 		indexedDocsToString(indexer.Lookup(
 			[]string{"token2", "token1"}, []string{}, nil, false)))
-	tt.Expect(t, "[7 0 []] [2 0 []] ",
+	assert.Equal(t, "[7 0 []] [2 0 []] ",
 		indexedDocsToString(indexer.Lookup(
 			[]string{"token1", "token3"}, []string{}, nil, false)))
-	tt.Expect(t, "[7 0 []] [2 0 []] ",
+	assert.Equal(t, "[7 0 []] [2 0 []] ",
 		indexedDocsToString(indexer.Lookup(
 			[]string{"token3", "token1"}, []string{}, nil, false)))
-	tt.Expect(t, "[2 0 []] [1 0 []] ",
+	assert.Equal(t, "[2 0 []] [1 0 []] ",
 		indexedDocsToString(indexer.Lookup(
 			[]string{"token2", "token3"}, []string{}, nil, false)))
-	tt.Expect(t, "[2 0 []] [1 0 []] ",
+	assert.Equal(t, "[2 0 []] [1 0 []] ",
 		indexedDocsToString(indexer.Lookup(
 			[]string{"token3", "token2"}, []string{}, nil, false)))
 
-	tt.Expect(t, "[2 0 []] ",
+	assert.Equal(t, "[2 0 []] ",
 		indexedDocsToString(indexer.Lookup(
 			[]string{"token1", "token2", "token3"}, []string{}, nil, false)))
-	tt.Expect(t, "[2 0 []] ",
+	assert.Equal(t, "[2 0 []] ",
 		indexedDocsToString(indexer.Lookup(
 			[]string{"token3", "token2", "token1"}, []string{}, nil, false)))
 }
 
 func TestLookupWithProximity(t *testing.T) {
-	var indexer Indexer
-	indexer.Init(types.IndexerOpts{IndexType: types.LocsIndex})
+	indexer, _ := NewIndexer(types.IndexerOpts{IndexType: types.LocsIndex})
 
 	// doc1 = "token2 token4 token4 token2 token3 token4"
 	indexer.AddDocToCache(&types.DocIndex{
@@ -339,7 +333,7 @@ func TestLookupWithProximity(t *testing.T) {
 		},
 	}, true)
 
-	tt.Expect(t, "[1 1 [21 28]] ",
+	assert.Equal(t, "[1 1 [21 28]] ",
 		indexedDocsToString(indexer.Lookup(
 			[]string{"token2", "token3"}, []string{}, nil, false)))
 
@@ -353,7 +347,7 @@ func TestLookupWithProximity(t *testing.T) {
 		},
 	}, true)
 
-	tt.Expect(t, "[1 8 [3 12 15]] ",
+	assert.Equal(t, "[1 8 [3 12 15]] ",
 		indexedDocsToString(indexer.Lookup(
 			[]string{"t1", "t2", "t3"}, []string{}, nil, false)))
 
@@ -366,14 +360,13 @@ func TestLookupWithProximity(t *testing.T) {
 			{"t3", 0, []int{0, 22}},
 		},
 	}, true)
-	tt.Expect(t, "[1 10 [6 3 0]] ",
+	assert.Equal(t, "[1 10 [6 3 0]] ",
 		indexedDocsToString(indexer.Lookup(
 			[]string{"t1", "t2", "t3"}, []string{}, nil, false)))
 }
 
 func TestLookupWithPartialLocations(t *testing.T) {
-	var indexer Indexer
-	indexer.Init(types.IndexerOpts{IndexType: types.LocsIndex})
+	indexer, _ := NewIndexer(types.IndexerOpts{IndexType: types.LocsIndex})
 	// doc1 = "token2 token4 token4 token2 token3 token4" + "label1"(不在文本中)
 	indexer.AddDocToCache(&types.DocIndex{
 		DocId: "1",
@@ -395,16 +388,12 @@ func TestLookupWithPartialLocations(t *testing.T) {
 		},
 	}, true)
 
-	tt.Expect(t, "1 ", indicesToString(&indexer, "label1"))
-
-	tt.Expect(t, "[1 1 [21 28]] ",
-		indexedDocsToString(indexer.Lookup(
-			[]string{"token2", "token3"}, []string{"label1"}, nil, false)))
+	assert.Equal(t, "1 ", indicesToString(indexer, "label1"))
+	assert.Equal(t, "[1 1 [21 28]] ", indexedDocsToString(indexer.Lookup([]string{"token2", "token3"}, []string{"label1"}, nil, false)))
 }
 
 func TestLookupWithBM25(t *testing.T) {
-	var indexer Indexer
-	indexer.Init(types.IndexerOpts{
+	indexer, _ := NewIndexer(types.IndexerOpts{
 		IndexType: types.FrequenciesIndex,
 		BM25Parameters: &types.BM25Parameters{
 			K1: 1,
@@ -433,16 +422,14 @@ func TestLookupWithBM25(t *testing.T) {
 		},
 	}, true)
 
-	outputs, _ := indexer.Lookup([]string{"token2", "token3", "token4"},
-		[]string{}, nil, false)
+	outputs, _ := indexer.Lookup([]string{"token2", "token3", "token4"}, []string{}, nil, false)
 
 	// BM25 = log2(3) * (12/9 + 28/17 + 60/33) = 6.3433
-	tt.Expect(t, "76055", int(outputs[0].BM25*10000))
+	assert.Equal(t, "76055", int(outputs[0].BM25*10000))
 }
 
 func TestLookupWithinDocIds(t *testing.T) {
-	var indexer Indexer
-	indexer.Init(types.IndexerOpts{IndexType: types.LocsIndex})
+	indexer, _ := NewIndexer(types.IndexerOpts{IndexType: types.LocsIndex})
 	// doc1 = "token2 token3"
 	indexer.AddDocToCache(&types.DocIndex{
 		DocId: "1",
@@ -482,14 +469,13 @@ func TestLookupWithinDocIds(t *testing.T) {
 	docIds := make(map[string]bool)
 	docIds["1"] = true
 	docIds["3"] = true
-	tt.Expect(t, "[3 0 [7]] [1 0 [0]] ",
+	assert.Equal(t, "[3 0 [7]] [1 0 [0]] ",
 		indexedDocsToString(indexer.Lookup(
 			[]string{"token2"}, []string{}, docIds, false)))
 }
 
 func TestLookupWithLocations(t *testing.T) {
-	var indexer Indexer
-	indexer.Init(types.IndexerOpts{IndexType: types.LocsIndex})
+	indexer, _ := NewIndexer(types.IndexerOpts{IndexType: types.LocsIndex})
 	// doc1 = "token2 token4 token4 token2 token3 token4"
 	indexer.AddDocToCache(&types.DocIndex{
 		DocId: "1",
@@ -513,5 +499,5 @@ func TestLookupWithLocations(t *testing.T) {
 	indexer.RemoveDocToCache("2", true)
 	docs, _ := indexer.Lookup(
 		[]string{"token2", "token3"}, []string{}, nil, false)
-	tt.Expect(t, "[[0 21] [28]]", docs[0].TokenLocs)
+	assert.Equal(t, "[[0 21] [28]]", docs[0].TokenLocs)
 }

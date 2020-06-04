@@ -189,6 +189,43 @@
                 ]
             }
         },
+        "/riot/kill": {
+            "post": {
+                "summary": "/riot/kill",
+                "responses": {
+                    "200": {
+                        "description": "A successful response.",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "code": {
+                                    "type": "integer"
+                                },
+                                "message": {
+                                    "type": "string"
+                                },
+                                "data": {
+                                    "$ref": "#/definitions/.riot.service.v1.KillResp"
+                                }
+                            }
+                        }
+                    }
+                },
+                "parameters": [
+                    {
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/.riot.service.v1.KillReq"
+                        }
+                    }
+                ],
+                "tags": [
+                    "riot.service.v1.Riot"
+                ]
+            }
+        },
         "/riot/say_hello": {
             "get": {
                 "summary": "/riot/say_hello",
@@ -380,6 +417,14 @@
                     "type": "string"
                 }
             }
+        },
+        ".riot.service.v1.KillReq": {
+            "type": "object",
+            "properties": {}
+        },
+        ".riot.service.v1.KillResp": {
+            "type": "object",
+            "properties": {}
         },
         ".riot.service.v1.Logic": {
             "type": "object",

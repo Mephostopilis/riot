@@ -85,6 +85,10 @@ func (s *Service) WgDist(ctx context.Context, req *pb.WgDistReq) (resp *pb.WgDis
 	return
 }
 
+func (s *Service) Kill(ctx context.Context, req *pb.KillReq) (resp *pb.KillResp, err error) {
+	return
+}
+
 // Ping ping the resource.
 func (s *Service) Ping(ctx context.Context, e *empty.Empty) (*empty.Empty, error) {
 	return &empty.Empty{}, nil

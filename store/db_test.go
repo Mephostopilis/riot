@@ -19,6 +19,7 @@ import (
 	"os"
 	"testing"
 
+	"github.com/influxdata/influxdb/pkg/testing/assert"
 	"github.com/vcaesar/tt"
 )
 
@@ -26,7 +27,7 @@ var TestDBName = "./db_test"
 
 func TestBadger(t *testing.T) {
 	db, err := OpenBadger(TestDBName)
-	tt.Expect(t, "<nil>", err)
+	assert.Equal(t, "<nil>", err)
 	if err != nil {
 		log.Panic(err)
 	}
@@ -38,7 +39,7 @@ func TestBadger(t *testing.T) {
 
 func TestLdb(t *testing.T) {
 	db, err := OpenLeveldb(TestDBName)
-	tt.Expect(t, "<nil>", err)
+	assert.Equal(t, "<nil>", err)
 	if err != nil {
 		log.Panic(err)
 	}
@@ -50,7 +51,7 @@ func TestLdb(t *testing.T) {
 
 func TestBolt(t *testing.T) {
 	db, err := OpenBolt(TestDBName)
-	tt.Expect(t, "<nil>", err)
+	assert.Equal(t, "<nil>", err)
 	if err != nil {
 		log.Panic(err)
 	}
@@ -65,7 +66,7 @@ func DBTest(t *testing.T, db Store) {
 	os.MkdirAll(TestDBName, 0777)
 
 	err := db.Set([]byte("key1"), []byte("value1"))
-	tt.Expect(t, "<nil>", err)
+	assert.Equal(t, "<nil>", err)
 
 	has, err := db.Has([]byte("key1"))
 	tt.Equal(t, nil, err)
@@ -75,8 +76,8 @@ func DBTest(t *testing.T, db Store) {
 
 	buf := make([]byte, 100)
 	buf, err = db.Get([]byte("key1"))
-	tt.Expect(t, "<nil>", err)
-	tt.Expect(t, "value1", string(buf))
+	assert.Equal(t, "<nil>", err)
+	assert.Equal(t, "value1", string(buf))
 
 	walFile := db.WALName()
 	db.Close()

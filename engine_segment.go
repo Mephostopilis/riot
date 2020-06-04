@@ -248,8 +248,7 @@ func (engine *Engine) segmenterWorker() {
 		if request.docId == "0" {
 			if request.forceUpdate {
 				for i := 0; i < engine.initOptions.NumShards; i++ {
-					engine.indexerAddDocChans[i] <- indexerAddDocReq{
-						forceUpdate: true}
+					engine.indexerAddDocChans[i] <- indexerAddDocReq{forceUpdate: true}
 				}
 			}
 			continue

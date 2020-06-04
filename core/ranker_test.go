@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	"github.com/go-ego/riot/types"
-	"github.com/vcaesar/tt"
+	"github.com/stretchr/testify/assert"
 )
 
 type DummyScoringFields struct {
@@ -37,10 +37,9 @@ type Attri struct {
 }
 
 func TestRankDocument(t *testing.T) {
-	var ranker Ranker
+	ranker, _ := NewRanker()
 	attri := Attri{Title: "title", Author: "who"}
 
-	ranker.Init()
 	ranker.AddDoc("1", DummyScoringFields{}, "content", attri)
 	ranker.AddDoc("3", DummyScoringFields{}, "content", attri)
 	ranker.AddDoc("4", DummyScoringFields{}, "content", attri)
@@ -50,7 +49,7 @@ func TestRankDocument(t *testing.T) {
 		{DocId: "3", BM25: 24},
 		{DocId: "4", BM25: 18},
 	}, types.RankOpts{ScoringCriteria: types.RankByBM25{}}, false)
-	tt.Expect(t, "[3 [24000 ]] [4 [18000 ]] [1 [6000 ]] ",
+	assert.Equal(t, "[3 [24000 ]] [4 [18000 ]] [1 [6000 ]] ",
 		scoredDocsToString(scoredDocs.(types.ScoredDocs)))
 
 	scoredDocs, _ = ranker.Rank(
@@ -64,15 +63,13 @@ func TestRankDocument(t *testing.T) {
 		false,
 	)
 	// doc0 因为没有 AddDoc 所以没有添加进来
-	tt.Expect(t, "[1 [6000 ]] [4 [18000 ]] [3 [24000 ]] ",
-		scoredDocsToString(scoredDocs.(types.ScoredDocs)))
+	assert.Equal(t, "[1 [6000 ]] [4 [18000 ]] [3 [24000 ]] ", scoredDocsToString(scoredDocs.(types.ScoredDocs)))
 }
 
 func TestRankWithCriteria(t *testing.T) {
-	var ranker Ranker
+	ranker, _ := NewRanker()
 	attri := Attri{Title: "title", Author: "who"}
 
-	ranker.Init()
 	ranker.AddDoc("1", DummyScoringFields{
 		label:   "label3",
 		counter: 3,
@@ -101,7 +98,7 @@ func TestRankWithCriteria(t *testing.T) {
 		{DocId: "3", TokenProximity: 24},
 		{DocId: "4", TokenProximity: 18},
 	}, types.RankOpts{ScoringCriteria: criteria}, false)
-	tt.Expect(t, "[1 [25300 ]] [3 [17300 ]] [2 [3000 ]] [4 [1300 ]] ",
+	assert.Equal(t, "[1 [25300 ]] [3 [17300 ]] [2 [3000 ]] [4 [1300 ]] ",
 		scoredDocsToString(scoredDocs.(types.ScoredDocs)))
 
 	criteria.Threshold = 4
@@ -111,15 +108,13 @@ func TestRankWithCriteria(t *testing.T) {
 		{DocId: "3", TokenProximity: 24},
 		{DocId: "4", TokenProximity: 18},
 	}, types.RankOpts{ScoringCriteria: criteria}, false)
-	tt.Expect(t, "[1 [25300 ]] [3 [17300 ]] ",
-		scoredDocsToString(scoredDocs.(types.ScoredDocs)))
+	assert.Equal(t, "[1 [25300 ]] [3 [17300 ]] ", scoredDocsToString(scoredDocs.(types.ScoredDocs)))
 }
 
 func TestRemoveDoc(t *testing.T) {
-	var ranker Ranker
+	ranker, _ := NewRanker()
 	attri := Attri{Title: "title", Author: "who"}
 
-	ranker.Init()
 	ranker.AddDoc("1", DummyScoringFields{
 		label:   "label3",
 		counter: 3,
@@ -144,6 +139,6 @@ func TestRemoveDoc(t *testing.T) {
 		{DocId: "3", TokenProximity: 24},
 		{DocId: "4", TokenProximity: 18},
 	}, types.RankOpts{ScoringCriteria: criteria}, false)
-	tt.Expect(t, "[1 [25300 ]] [2 [3000 ]] ",
+	assert.Equal(t, "[1 [25300 ]] [2 [3000 ]] ",
 		scoredDocsToString(scoredDocs.(types.ScoredDocs)))
 }

@@ -12,13 +12,14 @@ import (
 
 	"github.com/go-ego/gse"
 	"github.com/go-ego/riot/types"
+	"github.com/stretchr/testify/assert"
 	"github.com/vcaesar/tt"
 )
 
 func TestGetVer(t *testing.T) {
 	fmt.Println("go version: ", runtime.Version())
 	ver := GetVersion()
-	tt.Expect(t, Version, ver)
+	assert.Equal(t, Version, ver)
 	tt.Equal(t, Version, ver)
 }
 
@@ -29,7 +30,7 @@ func TestTry(t *testing.T) {
 		fmt.Println(arr[2])
 	}, func(err interface{}) {
 		log.Println("err", err)
-		tt.Expect(t, "runtime error: index out of range [2] with length 0", err)
+		assert.Equal(t, "runtime error: index out of range [2] with length 0", err)
 	})
 }
 
@@ -40,25 +41,25 @@ func TestEngineIndexDoc(t *testing.T) {
 	AddDocs(&engine)
 
 	outputs := engine.Search(Req1)
-	tt.Expect(t, "2", len(outputs.Tokens))
-	tt.Expect(t, "world", outputs.Tokens[0])
-	tt.Expect(t, "人口", outputs.Tokens[1])
+	assert.Equal(t, "2", len(outputs.Tokens))
+	assert.Equal(t, "world", outputs.Tokens[0])
+	assert.Equal(t, "人口", outputs.Tokens[1])
 
 	outDocs := outputs.Docs.(types.ScoredDocs)
-	tt.Expect(t, "3", len(outDocs))
+	assert.Equal(t, "3", len(outDocs))
 
 	log.Println("TestEngineIndexDoc:", outDocs)
-	tt.Expect(t, "2", outDocs[0].DocId)
-	tt.Expect(t, "333", int(outDocs[0].Scores[0]*1000))
-	tt.Expect(t, "[4 11]", outDocs[0].TokenSnippetLocs)
+	assert.Equal(t, "2", outDocs[0].DocId)
+	assert.Equal(t, "333", int(outDocs[0].Scores[0]*1000))
+	assert.Equal(t, "[4 11]", outDocs[0].TokenSnippetLocs)
 
-	tt.Expect(t, "5", outDocs[1].DocId)
-	tt.Expect(t, "83", int(outDocs[1].Scores[0]*1000))
-	tt.Expect(t, "[4 20]", outDocs[1].TokenSnippetLocs)
+	assert.Equal(t, "5", outDocs[1].DocId)
+	assert.Equal(t, "83", int(outDocs[1].Scores[0]*1000))
+	assert.Equal(t, "[4 20]", outDocs[1].TokenSnippetLocs)
 
-	tt.Expect(t, "1", outDocs[2].DocId)
-	tt.Expect(t, "66", int(outDocs[2].Scores[0]*1000))
-	tt.Expect(t, "[4 23]", outDocs[2].TokenSnippetLocs)
+	assert.Equal(t, "1", outDocs[2].DocId)
+	assert.Equal(t, "66", int(outDocs[2].Scores[0]*1000))
+	assert.Equal(t, "[4 23]", outDocs[2].TokenSnippetLocs)
 
 	engine.Close()
 }
@@ -72,11 +73,11 @@ func TestReverseOrder(t *testing.T) {
 	outputs := engine.Search(Req1)
 
 	outDocs := outputs.Docs.(types.ScoredDocs)
-	tt.Expect(t, "3", len(outDocs))
+	assert.Equal(t, "3", len(outDocs))
 
-	tt.Expect(t, "1", outDocs[0].DocId)
-	tt.Expect(t, "5", outDocs[1].DocId)
-	tt.Expect(t, "2", outDocs[2].DocId)
+	assert.Equal(t, "1", outDocs[0].DocId)
+	assert.Equal(t, "5", outDocs[1].DocId)
+	assert.Equal(t, "2", outDocs[2].DocId)
 
 	engine.Close()
 }
@@ -95,10 +96,10 @@ func TestOffsetAndMaxOutputs(t *testing.T) {
 	outputs := engine.Search(Req1)
 
 	outDocs := outputs.Docs.(types.ScoredDocs)
-	tt.Expect(t, "2", len(outDocs))
+	assert.Equal(t, "2", len(outDocs))
 
-	tt.Expect(t, "5", outDocs[0].DocId)
-	tt.Expect(t, "2", outDocs[1].DocId)
+	assert.Equal(t, "5", outDocs[0].DocId)
+	assert.Equal(t, "2", outDocs[1].DocId)
 
 	engine.Close()
 }
@@ -135,14 +136,14 @@ func TestSearchWithCriteria(t *testing.T) {
 	outputs := engine.Search(Req1)
 
 	outDocs := outputs.Docs.(types.ScoredDocs)
-	tt.Expect(t, "2", len(outDocs))
+	assert.Equal(t, "2", len(outDocs))
 
 	log.Println(outDocs)
-	tt.Expect(t, "1", outDocs[0].DocId)
-	tt.Expect(t, "20000", int(outDocs[0].Scores[0]*1000))
+	assert.Equal(t, "1", outDocs[0].DocId)
+	assert.Equal(t, "20000", int(outDocs[0].Scores[0]*1000))
 
-	tt.Expect(t, "5", outDocs[1].DocId)
-	tt.Expect(t, "9000", int(outDocs[1].Scores[0]*1000))
+	assert.Equal(t, "5", outDocs[1].DocId)
+	assert.Equal(t, "9000", int(outDocs[1].Scores[0]*1000))
 
 	engine.Close()
 }
@@ -156,13 +157,13 @@ func TestCompactIndex(t *testing.T) {
 	outputs := engine.Search(Req1)
 
 	outDocs := outputs.Docs.(types.ScoredDocs)
-	tt.Expect(t, "2", len(outDocs))
+	assert.Equal(t, "2", len(outDocs))
 
-	tt.Expect(t, "5", outDocs[0].DocId)
-	tt.Expect(t, "9000", int(outDocs[0].Scores[0]*1000))
+	assert.Equal(t, "5", outDocs[0].DocId)
+	assert.Equal(t, "9000", int(outDocs[0].Scores[0]*1000))
 
-	tt.Expect(t, "1", outDocs[1].DocId)
-	tt.Expect(t, "6000", int(outDocs[1].Scores[0]*1000))
+	assert.Equal(t, "1", outDocs[1].DocId)
+	assert.Equal(t, "6000", int(outDocs[1].Scores[0]*1000))
 
 	engine.Close()
 }
@@ -196,13 +197,13 @@ func TestFrequenciesIndex(t *testing.T) {
 	outputs := engine.Search(Req1)
 
 	outDocs := outputs.Docs.(types.ScoredDocs)
-	tt.Expect(t, "2", len(outDocs))
+	assert.Equal(t, "2", len(outDocs))
 
-	tt.Expect(t, "1", outDocs[0].DocId)
-	tt.Expect(t, "2374", int(outDocs[0].Scores[0]*1000))
+	assert.Equal(t, "1", outDocs[0].DocId)
+	assert.Equal(t, "2374", int(outDocs[0].Scores[0]*1000))
 
-	tt.Expect(t, "5", outDocs[1].DocId)
-	tt.Expect(t, "2133", int(outDocs[1].Scores[0]*1000))
+	assert.Equal(t, "5", outDocs[1].DocId)
+	assert.Equal(t, "2133", int(outDocs[1].Scores[0]*1000))
 
 	engine.Close()
 }
@@ -236,12 +237,12 @@ func TestRemoveDoc(t *testing.T) {
 	outputs := engine.Search(Req1)
 
 	outDocs := outputs.Docs.(types.ScoredDocs)
-	tt.Expect(t, "2", len(outDocs))
+	assert.Equal(t, "2", len(outDocs))
 
-	tt.Expect(t, "6", outDocs[0].DocId)
-	tt.Expect(t, "9000", int(outDocs[0].Scores[0]*1000))
-	tt.Expect(t, "1", outDocs[1].DocId)
-	tt.Expect(t, "6000", int(outDocs[1].Scores[0]*1000))
+	assert.Equal(t, "6", outDocs[0].DocId)
+	assert.Equal(t, "9000", int(outDocs[0].Scores[0]*1000))
+	assert.Equal(t, "1", outDocs[1].DocId)
+	assert.Equal(t, "6000", int(outDocs[1].Scores[0]*1000))
 
 	engine.Close()
 }
@@ -282,24 +283,24 @@ func TestEngineIndexWithTokens(t *testing.T) {
 
 	outputs := engine.Search(Req1)
 	log.Println("TestEngineIndexWithTokens: ", outputs)
-	tt.Expect(t, "2", len(outputs.Tokens))
-	tt.Expect(t, "world", outputs.Tokens[0])
-	tt.Expect(t, "人口", outputs.Tokens[1])
+	assert.Equal(t, "2", len(outputs.Tokens))
+	assert.Equal(t, "world", outputs.Tokens[0])
+	assert.Equal(t, "人口", outputs.Tokens[1])
 
 	outDocs := outputs.Docs.(types.ScoredDocs)
-	tt.Expect(t, "3", len(outDocs))
+	assert.Equal(t, "3", len(outDocs))
 
-	tt.Expect(t, "2", outDocs[0].DocId)
-	tt.Expect(t, "500", int(outDocs[0].Scores[0]*1000))
-	tt.Expect(t, "[0 6]", outDocs[0].TokenSnippetLocs)
+	assert.Equal(t, "2", outDocs[0].DocId)
+	assert.Equal(t, "500", int(outDocs[0].Scores[0]*1000))
+	assert.Equal(t, "[0 6]", outDocs[0].TokenSnippetLocs)
 
-	tt.Expect(t, "3", outDocs[1].DocId)
-	tt.Expect(t, "83", int(outDocs[1].Scores[0]*1000))
-	tt.Expect(t, "[4 20]", outDocs[1].TokenSnippetLocs)
+	assert.Equal(t, "3", outDocs[1].DocId)
+	assert.Equal(t, "83", int(outDocs[1].Scores[0]*1000))
+	assert.Equal(t, "[4 20]", outDocs[1].TokenSnippetLocs)
 
-	tt.Expect(t, "1", outDocs[2].DocId)
-	tt.Expect(t, "71", int(outDocs[2].Scores[0]*1000))
-	tt.Expect(t, "[0 18]", outDocs[2].TokenSnippetLocs)
+	assert.Equal(t, "1", outDocs[2].DocId)
+	assert.Equal(t, "71", int(outDocs[2].Scores[0]*1000))
+	assert.Equal(t, "[0 18]", outDocs[2].TokenSnippetLocs)
 
 	engine.Close()
 }
@@ -323,14 +324,14 @@ func TestEngineIndexWithContentAndLabels(t *testing.T) {
 
 	outputs1 := engine1.Search(reqG)
 	outputs2 := engine2.Search(reqG)
-	tt.Expect(t, "1", len(outputs1.Tokens))
-	tt.Expect(t, "1", len(outputs2.Tokens))
-	tt.Expect(t, "google", outputs1.Tokens[0])
-	tt.Expect(t, "google", outputs2.Tokens[0])
+	assert.Equal(t, "1", len(outputs1.Tokens))
+	assert.Equal(t, "1", len(outputs2.Tokens))
+	assert.Equal(t, "google", outputs1.Tokens[0])
+	assert.Equal(t, "google", outputs2.Tokens[0])
 
 	outDocs := outputs1.Docs.(types.ScoredDocs)
-	tt.Expect(t, "2", len(outDocs))
-	tt.Expect(t, "2", len(outputs2.Docs.(types.ScoredDocs)))
+	assert.Equal(t, "2", len(outDocs))
+	assert.Equal(t, "2", len(outputs2.Docs.(types.ScoredDocs)))
 
 	engine1.Close()
 	engine2.Close()
@@ -349,12 +350,12 @@ func TestIndexWithLabelsStopTokenFile(t *testing.T) {
 
 	outputs1 := engine1.Search(reqG)
 	outputsDoc := engine1.SearchDoc(reqG)
-	tt.Expect(t, "1", len(outputs1.Tokens))
-	// tt.Expect(t, "Google", outputs1.Tokens[0])
+	assert.Equal(t, "1", len(outputs1.Tokens))
+	// assert.Equal(t, "Google", outputs1.Tokens[0])
 
 	outDocs := outputs1.Docs.(types.ScoredDocs)
-	tt.Expect(t, "2", len(outDocs))
-	tt.Expect(t, "2", len(outputsDoc.Docs))
+	assert.Equal(t, "2", len(outDocs))
+	assert.Equal(t, "2", len(outputsDoc.Docs))
 }
 
 func TestEngineIndexWithStore(t *testing.T) {
@@ -385,20 +386,20 @@ func TestEngineIndexWithStore(t *testing.T) {
 	engine1.Flush()
 
 	outputs := engine1.Search(Req1)
-	tt.Expect(t, "2", len(outputs.Tokens))
-	tt.Expect(t, "world", outputs.Tokens[0])
-	tt.Expect(t, "人口", outputs.Tokens[1])
+	assert.Equal(t, "2", len(outputs.Tokens))
+	assert.Equal(t, "world", outputs.Tokens[0])
+	assert.Equal(t, "人口", outputs.Tokens[1])
 
 	outDocs := outputs.Docs.(types.ScoredDocs)
-	tt.Expect(t, "2", len(outDocs))
+	assert.Equal(t, "2", len(outDocs))
 
-	tt.Expect(t, "2", outDocs[0].DocId)
-	tt.Expect(t, "333", int(outDocs[0].Scores[0]*1000))
-	tt.Expect(t, "[4 11]", outDocs[0].TokenSnippetLocs)
+	assert.Equal(t, "2", outDocs[0].DocId)
+	assert.Equal(t, "333", int(outDocs[0].Scores[0]*1000))
+	assert.Equal(t, "[4 11]", outDocs[0].TokenSnippetLocs)
 
-	tt.Expect(t, "1", outDocs[1].DocId)
-	tt.Expect(t, "66", int(outDocs[1].Scores[0]*1000))
-	tt.Expect(t, "[4 23]", outDocs[1].TokenSnippetLocs)
+	assert.Equal(t, "1", outDocs[1].DocId)
+	assert.Equal(t, "66", int(outDocs[1].Scores[0]*1000))
+	assert.Equal(t, "[4 23]", outDocs[1].TokenSnippetLocs)
 
 	engine1.Close()
 	os.RemoveAll("riot.persistent")
@@ -421,12 +422,12 @@ func TestCountDocsOnly(t *testing.T) {
 	outputs := engine.Search(
 		types.SearchReq{Text: reqText, CountDocsOnly: true},
 	)
-	// tt.Expect(t, "0", len(outputs.Docs))
+	// assert.Equal(t, "0", len(outputs.Docs))
 	if outputs.Docs == nil {
-		tt.Expect(t, "0", 0)
+		assert.Equal(t, "0", 0)
 	}
-	tt.Expect(t, "2", len(outputs.Tokens))
-	tt.Expect(t, "2", outputs.NumDocs)
+	assert.Equal(t, "2", len(outputs.Tokens))
+	assert.Equal(t, "2", outputs.NumDocs)
 
 	engine.Close()
 }
@@ -442,12 +443,12 @@ func TestDocOrderless(t *testing.T) {
 
 	orderReq := types.SearchReq{Text: reqText, Orderless: true}
 	outputs := engine.Search(orderReq)
-	// tt.Expect(t, "0", len(outputs.Docs))
+	// assert.Equal(t, "0", len(outputs.Docs))
 	if outputs.Docs == nil {
-		tt.Expect(t, "0", 0)
+		assert.Equal(t, "0", 0)
 	}
-	tt.Expect(t, "2", len(outputs.Tokens))
-	tt.Expect(t, "2", outputs.NumDocs)
+	assert.Equal(t, "2", len(outputs.Tokens))
+	assert.Equal(t, "2", outputs.NumDocs)
 
 	engine1.Init(OrderlessOpts(true))
 
@@ -458,11 +459,11 @@ func TestDocOrderless(t *testing.T) {
 
 	outputs1 := engine1.Search(orderReq)
 	if outputs1.Docs == nil {
-		tt.Expect(t, "0", 0)
+		assert.Equal(t, "0", 0)
 	}
 
-	tt.Expect(t, "2", len(outputs1.Tokens))
-	tt.Expect(t, "2", outputs1.NumDocs)
+	assert.Equal(t, "2", len(outputs1.Tokens))
+	assert.Equal(t, "2", outputs1.NumDocs)
 
 	engine.Close()
 }
@@ -491,14 +492,14 @@ func TestDocOnlyID(t *testing.T) {
 	}
 	outputs := engine.Search(req)
 	outputsID := engine.SearchID(req)
-	tt.Expect(t, "1", len(outputsID.Docs))
+	assert.Equal(t, "1", len(outputsID.Docs))
 
 	if outputs.Docs != nil {
 		outDocs := outputs.Docs.(types.ScoredIDs)
-		tt.Expect(t, "1", len(outDocs))
+		assert.Equal(t, "1", len(outDocs))
 	}
-	tt.Expect(t, "2", len(outputs.Tokens))
-	tt.Expect(t, "2", outputs.NumDocs)
+	assert.Equal(t, "2", len(outputs.Tokens))
+	assert.Equal(t, "2", outputs.NumDocs)
 
 	outputs1 := engine.Search(types.SearchReq{
 		Text:    reqText,
@@ -508,10 +509,10 @@ func TestDocOnlyID(t *testing.T) {
 
 	if outputs1.Docs != nil {
 		outDocs1 := outputs.Docs.(types.ScoredIDs)
-		tt.Expect(t, "1", len(outDocs1))
+		assert.Equal(t, "1", len(outDocs1))
 	}
-	tt.Expect(t, "2", len(outputs1.Tokens))
-	tt.Expect(t, "2", outputs1.NumDocs)
+	assert.Equal(t, "2", len(outputs1.Tokens))
+	assert.Equal(t, "2", outputs1.NumDocs)
 
 	engine.Close()
 }
@@ -530,20 +531,20 @@ func TestSearchWithin(t *testing.T) {
 		Text:   reqText,
 		DocIds: docIds,
 	})
-	tt.Expect(t, "2", len(outputs.Tokens))
-	tt.Expect(t, "world", outputs.Tokens[0])
-	tt.Expect(t, "人口", outputs.Tokens[1])
+	assert.Equal(t, "2", len(outputs.Tokens))
+	assert.Equal(t, "world", outputs.Tokens[0])
+	assert.Equal(t, "人口", outputs.Tokens[1])
 
 	outDocs := outputs.Docs.(types.ScoredDocs)
-	tt.Expect(t, "2", len(outDocs))
+	assert.Equal(t, "2", len(outDocs))
 
-	tt.Expect(t, "1", outDocs[0].DocId)
-	tt.Expect(t, "66", int(outDocs[0].Scores[0]*1000))
-	tt.Expect(t, "[4 23]", outDocs[0].TokenSnippetLocs)
+	assert.Equal(t, "1", outDocs[0].DocId)
+	assert.Equal(t, "66", int(outDocs[0].Scores[0]*1000))
+	assert.Equal(t, "[4 23]", outDocs[0].TokenSnippetLocs)
 
-	tt.Expect(t, "5", outDocs[1].DocId)
-	tt.Expect(t, "83", int(outDocs[1].Scores[0]*1000))
-	tt.Expect(t, "[4 20]", outDocs[1].TokenSnippetLocs)
+	assert.Equal(t, "5", outDocs[1].DocId)
+	assert.Equal(t, "83", int(outDocs[1].Scores[0]*1000))
+	assert.Equal(t, "[4 20]", outDocs[1].TokenSnippetLocs)
 
 	engine.Close()
 }
@@ -580,17 +581,17 @@ func TestSearchJp(t *testing.T) {
 		DocIds: docIds,
 	})
 
-	tt.Expect(t, "2", len(outputs.Tokens))
-	tt.Expect(t, "こんにちは", outputs.Tokens[0])
-	tt.Expect(t, "世界", outputs.Tokens[1])
+	assert.Equal(t, "2", len(outputs.Tokens))
+	assert.Equal(t, "こんにちは", outputs.Tokens[0])
+	assert.Equal(t, "世界", outputs.Tokens[1])
 
 	outDocs := outputs.Docs.(types.ScoredDocs)
 	log.Println("outputs docs...", outDocs)
-	tt.Expect(t, "1", len(outDocs))
+	assert.Equal(t, "1", len(outDocs))
 
-	tt.Expect(t, "7", outDocs[0].DocId)
-	tt.Expect(t, "1000", int(outDocs[0].Scores[0]*1000))
-	tt.Expect(t, "[0 15]", outDocs[0].TokenSnippetLocs)
+	assert.Equal(t, "7", outDocs[0].DocId)
+	assert.Equal(t, "1000", int(outDocs[0].Scores[0]*1000))
+	assert.Equal(t, "[0 15]", outDocs[0].TokenSnippetLocs)
 
 	engine.Close()
 }
@@ -641,21 +642,21 @@ func TestSearchGse(t *testing.T) {
 		DocIds: docIds,
 	})
 
-	tt.Expect(t, "2", len(outputs.Tokens))
-	tt.Expect(t, "こんにちは", outputs.Tokens[0])
-	tt.Expect(t, "世界", outputs.Tokens[1])
+	assert.Equal(t, "2", len(outputs.Tokens))
+	assert.Equal(t, "こんにちは", outputs.Tokens[0])
+	assert.Equal(t, "世界", outputs.Tokens[1])
 
 	outDocs := outputs.Docs.(types.ScoredDocs)
 	log.Println("outputs docs...", outDocs)
-	tt.Expect(t, "2", len(outDocs))
+	assert.Equal(t, "2", len(outDocs))
 
-	tt.Expect(t, "8", outDocs[0].DocId)
-	tt.Expect(t, "142", int(outDocs[0].Scores[0]*1000))
-	tt.Expect(t, "[10 19]", outDocs[0].TokenSnippetLocs)
+	assert.Equal(t, "8", outDocs[0].DocId)
+	assert.Equal(t, "142", int(outDocs[0].Scores[0]*1000))
+	assert.Equal(t, "[10 19]", outDocs[0].TokenSnippetLocs)
 
-	tt.Expect(t, "7", outDocs[1].DocId)
-	tt.Expect(t, "1000", int(outDocs[1].Scores[0]*1000))
-	tt.Expect(t, "[0 15]", outDocs[1].TokenSnippetLocs)
+	assert.Equal(t, "7", outDocs[1].DocId)
+	assert.Equal(t, "1000", int(outDocs[1].Scores[0]*1000))
+	assert.Equal(t, "[0 15]", outDocs[1].TokenSnippetLocs)
 
 	engine.Close()
 }
@@ -697,23 +698,23 @@ func TestSearchNotUseGse(t *testing.T) {
 		DocIds: docIds,
 	})
 
-	tt.Expect(t, "2", len(outputs.Tokens))
-	tt.Expect(t, "google", outputs.Tokens[0])
-	tt.Expect(t, "is", outputs.Tokens[1])
+	assert.Equal(t, "2", len(outputs.Tokens))
+	assert.Equal(t, "google", outputs.Tokens[0])
+	assert.Equal(t, "is", outputs.Tokens[1])
 
 	outDocs := outputs.Docs.(types.ScoredDocs)
 	log.Println("outputs docs...", outDocs)
-	tt.Expect(t, "2", len(outDocs))
+	assert.Equal(t, "2", len(outDocs))
 
-	tt.Expect(t, "8", outDocs[0].DocId)
-	tt.Expect(t, "3736", int(outDocs[0].Scores[0]*1000))
-	tt.Expect(t, "[]", outDocs[0].TokenSnippetLocs)
+	assert.Equal(t, "8", outDocs[0].DocId)
+	assert.Equal(t, "3736", int(outDocs[0].Scores[0]*1000))
+	assert.Equal(t, "[]", outDocs[0].TokenSnippetLocs)
 
 	outputs1 := engine1.Search(types.SearchReq{
 		Text:   "google",
 		DocIds: docIds})
-	tt.Expect(t, "1", len(outputs1.Tokens))
-	tt.Expect(t, "2", outputs1.NumDocs)
+	assert.Equal(t, "1", len(outputs1.Tokens))
+	assert.Equal(t, "2", outputs1.NumDocs)
 
 	engine.Close()
 	engine1.Close()
@@ -745,14 +746,14 @@ func TestSearchWithGse(t *testing.T) {
 
 	outputs1 := engine1.Search(reqG)
 	outputs2 := engine2.Search(reqG)
-	tt.Expect(t, "1", len(outputs1.Tokens))
-	tt.Expect(t, "1", len(outputs2.Tokens))
-	tt.Expect(t, "google", outputs1.Tokens[0])
-	tt.Expect(t, "google", outputs2.Tokens[0])
+	assert.Equal(t, "1", len(outputs1.Tokens))
+	assert.Equal(t, "1", len(outputs2.Tokens))
+	assert.Equal(t, "google", outputs1.Tokens[0])
+	assert.Equal(t, "google", outputs2.Tokens[0])
 
 	outDocs := outputs1.Docs.(types.ScoredDocs)
-	tt.Expect(t, "2", len(outDocs))
-	tt.Expect(t, "2", len(outputs2.Docs.(types.ScoredDocs)))
+	assert.Equal(t, "2", len(outDocs))
+	assert.Equal(t, "2", len(outputs2.Docs.(types.ScoredDocs)))
 
 	engine1.Close()
 	engine2.Close()
@@ -834,21 +835,21 @@ func TestSearchLogic(t *testing.T) {
 		Logic:  logic,
 	})
 
-	tt.Expect(t, "2", len(outputs.Tokens))
-	tt.Expect(t, "こんにちは", outputs.Tokens[0])
-	tt.Expect(t, "世界", outputs.Tokens[1])
+	assert.Equal(t, "2", len(outputs.Tokens))
+	assert.Equal(t, "こんにちは", outputs.Tokens[0])
+	assert.Equal(t, "世界", outputs.Tokens[1])
 
 	outDocs := outputs.Docs.(types.ScoredDocs)
 	log.Println("outputs docs...", outDocs)
-	tt.Expect(t, "2", len(outDocs))
+	assert.Equal(t, "2", len(outDocs))
 
-	tt.Expect(t, "10", outDocs[0].DocId)
-	tt.Expect(t, "1000", int(outDocs[0].Scores[0]*1000))
-	tt.Expect(t, "[]", outDocs[0].TokenSnippetLocs)
+	assert.Equal(t, "10", outDocs[0].DocId)
+	assert.Equal(t, "1000", int(outDocs[0].Scores[0]*1000))
+	assert.Equal(t, "[]", outDocs[0].TokenSnippetLocs)
 
-	tt.Expect(t, "9", outDocs[1].DocId)
-	tt.Expect(t, "1000", int(outDocs[1].Scores[0]*1000))
-	tt.Expect(t, "[]", outDocs[1].TokenSnippetLocs)
+	assert.Equal(t, "9", outDocs[1].DocId)
+	assert.Equal(t, "1000", int(outDocs[1].Scores[0]*1000))
+	assert.Equal(t, "[]", outDocs[1].TokenSnippetLocs)
 
 	engine.Close()
 }
