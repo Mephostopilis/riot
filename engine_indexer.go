@@ -48,57 +48,56 @@ type indexerRemoveDocReq struct {
 func (engine *Engine) initIndexer(options *types.EngineOpts) {
 
 	// 初始化索引器
+	engine.indexers = make([]*core.Indexer, options.NumShards)
 	for shard := 0; shard < options.NumShards; shard++ {
 		indexer, _ := core.NewIndexer(*options.IndexerOpts)
 		engine.indexers[shard] = indexer
 	}
 
+	// 初始所有管道
 	engine.indexerAddDocChans = make([]chan indexerAddDocReq, options.NumShards)
 	engine.indexerRemoveDocChans = make([]chan indexerRemoveDocReq, options.NumShards)
 	engine.indexerLookupChans = make([]chan indexerLookupReq, options.NumShards)
-
 	for shard := 0; shard < options.NumShards; shard++ {
-		engine.indexerAddDocChans[shard] = make(
-			chan indexerAddDocReq, options.IndexerBufLen)
-
-		engine.indexerRemoveDocChans[shard] = make(
-			chan indexerRemoveDocReq, options.IndexerBufLen)
-
-		engine.indexerLookupChans[shard] = make(
-			chan indexerLookupReq, options.IndexerBufLen)
+		engine.indexerAddDocChans[shard] = make(chan indexerAddDocReq, options.IndexerBufLen)
+		engine.indexerRemoveDocChans[shard] = make(chan indexerRemoveDocReq, options.IndexerBufLen)
+		engine.indexerLookupChans[shard] = make(chan indexerLookupReq, options.IndexerBufLen)
 	}
 }
 
 func (engine *Engine) indexerAddDoc(shard int) {
 	for {
-		request := <-engine.indexerAddDocChans[shard]
-		engine.indexers[shard].AddDocToCache(request.doc, request.forceUpdate)
-		if request.doc != nil {
-			atomic.AddUint64(&engine.numTokenIndexAdded, uint64(len(request.doc.Keywords)))
-			atomic.AddUint64(&engine.numDocsIndexed, 1)
-		}
-		if request.forceUpdate {
-			atomic.AddUint64(&engine.numDocsForceUpdated, 1)
+		select {
+		case request := <-engine.indexerAddDocChans[shard]:
+			engine.indexers[shard].AddDocToCache(request.doc, request.forceUpdate)
+			if request.doc != nil {
+				atomic.AddUint64(&engine.numTokenIndexAdded, uint64(len(request.doc.Keywords)))
+				atomic.AddUint64(&engine.numDocsIndexed, 1)
+			}
+			if request.forceUpdate {
+				atomic.AddUint64(&engine.numDocsForceUpdated, 1)
+			}
 		}
 	}
 }
 
 func (engine *Engine) indexerRemoveDoc(shard int) {
 	for {
-		request := <-engine.indexerRemoveDocChans[shard]
-		engine.indexers[shard].RemoveDocToCache(request.docId, request.forceUpdate)
-		if request.docId != "0" {
-			atomic.AddUint64(&engine.numDocsRemoved, 1)
+		select {
+		case request := <-engine.indexerRemoveDocChans[shard]:
+			engine.indexers[shard].RemoveDocToCache(request.docId, request.forceUpdate)
+			if request.docId != "0" {
+				atomic.AddUint64(&engine.numDocsRemoved, 1)
+			}
+			if request.forceUpdate {
+				atomic.AddUint64(&engine.numDocsForceUpdated, 1)
+			}
 		}
-		if request.forceUpdate {
-			atomic.AddUint64(&engine.numDocsForceUpdated, 1)
-		}
+
 	}
 }
 
-func (engine *Engine) orderLess(
-	request indexerLookupReq, docs []types.IndexedDoc) {
-
+func (engine *Engine) orderLess(request indexerLookupReq, docs []types.IndexedDoc) {
 	if engine.initOptions.IDOnly {
 		var outputDocs types.ScoredIDs
 		for _, d := range docs {

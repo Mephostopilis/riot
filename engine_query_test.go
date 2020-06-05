@@ -17,9 +17,14 @@ func TestEngineIndexWithNewStore(t *testing.T) {
 	gob.Register(test.ScoringFields{})
 	engine := New(
 		types.EngineOpts{
-			GseDict:     "./data/dict/dictionary.txttestdata/test_dict.txt",
-			StoreFolder: "./riot.new",
-			NumShards:   8})
+			SegmenterOpts: &types.SegmenterOpts{
+				GseDict: "zh,./configs/dict/dictionary.txt,testdata/test_dict.txt",
+			},
+			StoreOpts: &types.StoreOpts{
+				StoreFolder: "./riot.new",
+			},
+			NumShards: 8})
+
 	log.Info("new engine start...")
 
 	AddDocs(engine)
@@ -73,9 +78,11 @@ var (
 
 func testRankOpt(idOnly bool) types.EngineOpts {
 	return types.EngineOpts{
-		Using:       1,
+		SegmenterOpts: &types.SegmenterOpts{
+			Using:   1,
+			GseDict: "zh,./testdata/test_dict.txt",
+		},
 		IDOnly:      idOnly,
-		GseDict:     "./testdata/test_dict.txt",
 		DefRankOpts: &rankTestOpts,
 		IndexerOpts: test.InxOpts,
 	}
@@ -171,15 +178,17 @@ func TestDocGetAllDocAndID(t *testing.T) {
 	gob.Register(test.ScoringFields{})
 
 	opts := types.EngineOpts{
-		Using:     1,
-		NumShards: 5,
-		UseStore:  true,
-		// StoreEngine: "bg",
-		StoreFolder: "riot.id",
+		SegmenterOpts: &types.SegmenterOpts{
+			Using:   1,
+			GseDict: "zh,./testdata/test_dict.txt",
+		},
+		NumShards:   5,
 		IDOnly:      true,
-		GseDict:     "./testdata/test_dict.txt",
 		DefRankOpts: &rankTestOpts,
 		IndexerOpts: test.InxOpts,
+		StoreOpts: &types.StoreOpts{
+			UseStore: true,
+		},
 	}
 	engine := New(opts)
 	engine.Startup()
@@ -255,12 +264,16 @@ func testOpts(use int, store string, args ...bool) types.EngineOpts {
 
 	return types.EngineOpts{
 		// Using:      1,
-		Using:       use,
-		UseStore:    true,
-		StoreFolder: store,
-		PinYin:      pinyin,
-		IDOnly:      true,
-		GseDict:     "./testdata/test_dict.txt",
+		SegmenterOpts: &types.SegmenterOpts{
+			Using:   use,
+			PinYin:  pinyin,
+			GseDict: "zh,./testdata/test_dict.txt",
+		},
+		StoreOpts: &types.StoreOpts{
+			UseStore:    true,
+			StoreFolder: store,
+		},
+		IDOnly: true,
 	}
 }
 
@@ -269,7 +282,7 @@ func TestDocPinYin(t *testing.T) {
 	engine := New(testOpts(0, "riot.py"))
 	pinyinOpt := New(testOpts(0, "riot.py.opt", true))
 
-	tokens := engine.PinYin(test.Text2)
+	tokens := engine.pinyin(test.Text2)
 	fmt.Println("tokens...", tokens)
 	assert.Equal(t, "52", len(tokens))
 
@@ -337,30 +350,32 @@ func TestForSplitData(t *testing.T) {
 	engine.RemoveDoc("5")
 	engine.Flush()
 
-	tokenDatas := engine.PinYin(test.Text2)
-	tokens, num := engine.ForSplitData(tokenDatas, 52)
-	assert.Equal(t, "93", len(tokens))
-	assert.Equal(t, "104", num)
+	// TODO:
+	// 测试数据
+	// tokenDatas := engine.pinyin(test.Text2)
+	// tokens, num := engine.ForSplitData(tokenDatas, 52)
+	// assert.Equal(t, "93", len(tokens))
+	// assert.Equal(t, "104", num)
 
-	index1 := types.DocData{Content: "在路上"}
-	engine.Index("10", index1, true)
+	// index1 := types.DocData{Content: "在路上"}
+	// engine.Index("10", index1, true)
 
-	docIds := make(map[string]bool)
-	docIds["5"] = true
-	docIds["1"] = true
-	outputs := engine.Search(types.SearchReq{
-		Text:   test.ReqText,
-		DocIds: docIds})
+	// docIds := make(map[string]bool)
+	// docIds["5"] = true
+	// docIds["1"] = true
+	// outputs := engine.Search(types.SearchReq{
+	// 	Text:   test.ReqText,
+	// 	DocIds: docIds})
 
-	if outputs.Docs != nil {
-		outDocs := outputs.Docs.(types.ScoredIDs)
-		assert.Equal(t, "0", len(outDocs))
-	}
-	assert.Equal(t, "2", len(outputs.Tokens))
-	assert.Equal(t, "0", outputs.NumDocs)
+	// if outputs.Docs != nil {
+	// 	outDocs := outputs.Docs.(types.ScoredIDs)
+	// 	assert.Equal(t, "0", len(outDocs))
+	// }
+	// assert.Equal(t, "2", len(outputs.Tokens))
+	// assert.Equal(t, "0", outputs.NumDocs)
 
-	engine.Close()
-	os.RemoveAll("riot.data")
+	// engine.Close()
+	// os.RemoveAll("riot.data")
 }
 
 func testNum(t *testing.T, numAdd, numInx, numRm uint64) {

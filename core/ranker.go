@@ -40,7 +40,7 @@ type Ranker struct {
 
 // Init init ranker
 func NewRanker(onlyID ...bool) (ranker *Ranker, err error) {
-
+	ranker = new(Ranker)
 	if len(onlyID) > 0 {
 		ranker.idOnly = onlyID[0]
 	}

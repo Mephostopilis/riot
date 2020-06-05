@@ -46,7 +46,7 @@ func (engine *Engine) HasDoc(docId string) bool {
 // HasDocDB if the document is exist in the database
 // return true
 func (engine *Engine) HasDocDB(docId string) bool {
-	shard := murmur.Sum32(docId) % uint32(engine.initOptions.StoreShards)
+	shard := murmur.Sum32(docId) % uint32(engine.initOptions.StoreOpts.StoreShards)
 
 	has, err := engine.dbs[shard].Has([]byte(docId))
 	if err != nil {

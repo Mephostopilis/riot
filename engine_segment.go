@@ -36,72 +36,28 @@ type segmenterReq struct {
 
 func (engine *Engine) initSegment(options *types.EngineOpts) {
 
-	if !engine.loaded {
-		// 载入分词器词典
-		engine.segmenter = &gse.Segmenter{}
-		engine.segmenter.LoadDict(options.GseDict)
-		engine.loaded = true
-	}
+	engine.segmenter = &gse.Segmenter{}
+	engine.segmenter.LoadDict(options.SegmenterOpts.GseDict)
 
 	// 初始化停用词
-	engine.stopTokens.Init(options.StopTokenFile)
+	engine.stopTokens.Init(options.SegmenterOpts.StopTokenFile)
 
 	// 初始化分词器通道
-	engine.segmenterChan = make(chan segmenterReq, options.NumGseThreads)
-}
-
-// ForSplitData for split segment's data, segspl
-func (engine *Engine) ForSplitData(strData []string, num int) (TMap, int) {
-	var (
-		numTokens int
-		splitStr  string
-	)
-	tokensMap := make(map[string][]int)
-
-	for i := 0; i < num; i++ {
-		if strData[i] != "" {
-			if !engine.stopTokens.IsStopToken(strData[i]) {
-				numTokens++
-				tokensMap[strData[i]] = append(tokensMap[strData[i]], numTokens)
-			}
-			splitStr += strData[i]
-			if !engine.stopTokens.IsStopToken(splitStr) {
-				numTokens++
-				tokensMap[splitStr] = append(tokensMap[splitStr], numTokens)
-			}
-
-			if engine.initOptions.Using == 6 {
-				// more combination
-				var splitsStr string
-				for s := i + 1; s < len(strData); s++ {
-					splitsStr += strData[s]
-
-					if !engine.stopTokens.IsStopToken(splitsStr) {
-						numTokens++
-						tokensMap[splitsStr] = append(tokensMap[splitsStr], numTokens)
-					}
-				}
-			}
-		}
-	}
-
-	return tokensMap, numTokens
+	engine.segmenterChan = make(chan segmenterReq, options.SegmenterOpts.NumGseThreads)
 }
 
 func (engine *Engine) splitData(request segmenterReq) (TMap, int) {
 	var (
-		num       int
 		numTokens int
 	)
 	tokensMap := make(map[string][]int)
+	options := engine.initOptions.SegmenterOpts
 
 	if request.data.Content != "" {
 		content := strings.ToLower(request.data.Content)
-		if engine.initOptions.Using == 3 {
+		if options.Using == 3 {
 			// use segmenter
-			segments := engine.segmenter.ModeSegment([]byte(content),
-				engine.initOptions.GseMode)
-
+			segments := engine.segmenter.ModeSegment([]byte(content), options.GseMode)
 			for _, segment := range segments {
 				token := segment.Token().Text()
 				if !engine.stopTokens.IsStopToken(token) {
@@ -109,20 +65,6 @@ func (engine *Engine) splitData(request segmenterReq) (TMap, int) {
 				}
 			}
 			numTokens += len(segments)
-		}
-
-		if engine.initOptions.Using == 4 {
-			tokensMap, numTokens = engine.defaultTokens(content)
-		}
-
-		if engine.initOptions.Using != 4 {
-			strData := strings.Split(content, "")
-			num = len(strData)
-			tokenMap, numToken := engine.ForSplitData(strData, num)
-			numTokens += numToken
-			for key, val := range tokenMap {
-				tokensMap[key] = val
-			}
 		}
 	}
 
@@ -133,18 +75,17 @@ func (engine *Engine) splitData(request segmenterReq) (TMap, int) {
 	}
 
 	numTokens += len(request.data.Tokens)
-
 	return tokensMap, numTokens
 }
 
 func (engine *Engine) segmenterData(request segmenterReq) (TMap, int) {
 	tokensMap := make(map[string][]int)
 	numTokens := 0
+	options := engine.initOptions.SegmenterOpts
 
-	if engine.initOptions.Using == 0 && request.data.Content != "" {
+	if options.Using == 0 && request.data.Content != "" {
 		// Content 分词, 当文档正文不为空时，优先从内容分词中得到关键词
-		segments := engine.segmenter.ModeSegment([]byte(request.data.Content),
-			engine.initOptions.GseMode)
+		segments := engine.segmenter.ModeSegment([]byte(request.data.Content), options.GseMode)
 
 		for _, segment := range segments {
 			token := segment.Token().Text()
@@ -160,14 +101,13 @@ func (engine *Engine) segmenterData(request segmenterReq) (TMap, int) {
 		}
 
 		numTokens = len(segments) + len(request.data.Tokens)
-
 		return tokensMap, numTokens
 	}
 
-	if engine.initOptions.Using == 1 && request.data.Content != "" {
+	if options.Using == 1 && request.data.Content != "" {
 		// Content 分词, 当文档正文不为空时，优先从内容分词中得到关键词
 		segments := engine.segmenter.ModeSegment([]byte(request.data.Content),
-			engine.initOptions.GseMode)
+			options.GseMode)
 
 		for _, segment := range segments {
 			token := segment.Token().Text()
@@ -180,11 +120,11 @@ func (engine *Engine) segmenterData(request segmenterReq) (TMap, int) {
 		return tokensMap, numTokens
 	}
 
-	useOpts := engine.initOptions.Using == 1 || engine.initOptions.Using == 3
+	useOpts := options.Using == 1 || options.Using == 3
 	contentNil := request.data.Content == ""
 	opts := useOpts && contentNil
 
-	if engine.initOptions.Using == 2 || opts {
+	if options.Using == 2 || opts {
 		for _, t := range request.data.Tokens {
 			if !engine.stopTokens.IsStopToken(t.Text) {
 				tokensMap[t.Text] = t.Locations
@@ -201,131 +141,8 @@ func (engine *Engine) segmenterData(request segmenterReq) (TMap, int) {
 	return tokenMap, lenSplitData
 }
 
-func (engine *Engine) defaultTokens(content string) (tokensMap TMap, numTokens int) {
-	// use segmenter
-	tokensMap = make(map[string][]int)
-	strData := strings.Split(content, " ")
-	num := len(strData)
-
-	if num > 0 {
-		tokenMap, numToken := engine.ForSplitData(strData, num)
-		numTokens += numToken
-
-		for key, val := range tokenMap {
-			tokensMap[key] = val
-		}
-	}
-
-	return
-}
-
-func (engine *Engine) makeTokensMap(request segmenterReq) (map[string][]int, int) {
-	tokensMap := make(map[string][]int)
-	numTokens := 0
-
-	if !(engine.initOptions.NotUseGse && engine.initOptions.Using == 0) {
-		tokensMap, numTokens = engine.segmenterData(request)
-	} else {
-		if request.data.Content != "" {
-			content := strings.ToLower(request.data.Content)
-			tokensMap, numTokens = engine.defaultTokens(content)
-		}
-
-		for _, t := range request.data.Tokens {
-			if !engine.stopTokens.IsStopToken(t.Text) {
-				tokensMap[t.Text] = t.Locations
-			}
-		}
-
-		numTokens += len(request.data.Tokens)
-	}
-
-	if engine.initOptions.PinYin {
-		strArr := engine.PinYin(request.data.Content)
-		count := len(strArr)
-
-		for i := 0; i < count; i++ {
-			str := strArr[i]
-			if !engine.stopTokens.IsStopToken(str) {
-				tokensMap[str] = []int{i}
-			}
-		}
-
-		numTokens += count
-	}
-
-	return tokensMap, numTokens
-}
-
-func (engine *Engine) segmenterWorker() {
-	for {
-		request := <-engine.segmenterChan
-		if request.docId == "0" {
-			if request.forceUpdate {
-				for i := 0; i < engine.initOptions.NumShards; i++ {
-					engine.indexerAddDocChans[i] <- indexerAddDocReq{forceUpdate: true}
-				}
-			}
-			continue
-		}
-
-		shard := engine.getShard(request.hash)
-		tokensMap, numTokens := engine.makeTokensMap(request)
-
-		// 加入非分词的文档标签
-		for _, label := range request.data.Labels {
-			if !engine.initOptions.NotUseGse {
-				if !engine.stopTokens.IsStopToken(label) {
-					// 当正文中已存在关键字时，若不判断，位置信息将会丢失
-					if _, ok := tokensMap[label]; !ok {
-						tokensMap[label] = []int{}
-					}
-				}
-			} else {
-				// 当正文中已存在关键字时，若不判断，位置信息将会丢失
-				if _, ok := tokensMap[label]; !ok {
-					tokensMap[label] = []int{}
-				}
-			}
-		}
-
-		indexerRequest := indexerAddDocReq{
-			doc: &types.DocIndex{
-				DocId:    request.docId,
-				TokenLen: float32(numTokens),
-				Keywords: make([]types.KeywordIndex, len(tokensMap)),
-			},
-			forceUpdate: request.forceUpdate,
-		}
-		iTokens := 0
-		for k, v := range tokensMap {
-			indexerRequest.doc.Keywords[iTokens] = types.KeywordIndex{
-				Text: k,
-				// 非分词标注的词频设置为0，不参与tf-idf计算
-				Frequency: float32(len(v)),
-				Starts:    v}
-			iTokens++
-		}
-
-		engine.indexerAddDocChans[shard] <- indexerRequest
-		if request.forceUpdate {
-			for i := 0; i < engine.initOptions.NumShards; i++ {
-				if i == shard {
-					continue
-				}
-				engine.indexerAddDocChans[i] <- indexerAddDocReq{forceUpdate: true}
-			}
-		}
-		rankerRequest := rankerAddDocReq{
-			// docId: request.docId, fields: request.data.Fields}
-			docId: request.docId, fields: request.data.Fields,
-			content: request.data.Content, attri: request.data.Attri}
-		engine.rankerAddDocChans[shard] <- rankerRequest
-	}
-}
-
 // PinYin get the Chinese alphabet and abbreviation
-func (engine *Engine) PinYin(hans string) []string {
+func (engine *Engine) pinyin(hans string) []string {
 	var (
 		str      string
 		pyStr    string
@@ -334,7 +151,6 @@ func (engine *Engine) PinYin(hans string) []string {
 		// splitArr []string
 	)
 
-	//
 	splitHans := strings.Split(hans, "")
 	for i := 0; i < len(splitHans); i++ {
 		if splitHans[i] != "" {
@@ -348,20 +164,14 @@ func (engine *Engine) PinYin(hans string) []string {
 		}
 	}
 
-	// Segment 分词
-	if !engine.initOptions.NotUseGse {
-		sehans := engine.Segment(hans)
-		for h := 0; h < len(sehans); h++ {
-			if !engine.stopTokens.IsStopToken(sehans[h]) {
-				strArr = append(strArr, sehans[h])
-			}
+	sehans := engine.Segment(hans)
+	for h := 0; h < len(sehans); h++ {
+		if !engine.stopTokens.IsStopToken(sehans[h]) {
+			strArr = append(strArr, sehans[h])
 		}
 	}
-	//
-	// py := pinyin.LazyConvert(sehans[h], nil)
-	py := gpy.LazyConvert(hans, nil)
 
-	// log.Println("py...", py)
+	py := gpy.LazyConvert(hans, nil)
 	for i := 0; i < len(py); i++ {
 		// log.Println("py[i]...", py[i])
 		pyStr += py[i]
@@ -376,6 +186,89 @@ func (engine *Engine) PinYin(hans string) []string {
 			}
 		}
 	}
-
 	return strArr
+}
+
+func (engine *Engine) makeTokensMap(request segmenterReq) (TMap, int) {
+	tokensMap := make(map[string][]int)
+	numTokens := 0
+	options := engine.initOptions.SegmenterOpts
+	tokensMap, numTokens = engine.segmenterData(request)
+
+	if options.PinYin {
+		strArr := engine.pinyin(request.data.Content)
+		count := len(strArr)
+
+		for i := 0; i < count; i++ {
+			str := strArr[i]
+			if !engine.stopTokens.IsStopToken(str) {
+				tokensMap[str] = []int{i}
+			}
+		}
+		numTokens += count
+	}
+
+	return tokensMap, numTokens
+}
+
+func (engine *Engine) segmenterWorker() {
+	for {
+		select {
+		case request := <-engine.segmenterChan:
+			if request.docId == "0" {
+				if request.forceUpdate {
+					for i := 0; i < engine.initOptions.NumShards; i++ {
+						engine.indexerAddDocChans[i] <- indexerAddDocReq{forceUpdate: true}
+					}
+				}
+				continue
+			}
+
+			shard := engine.getShard(request.hash)
+			tokensMap, numTokens := engine.makeTokensMap(request)
+
+			for _, label := range request.data.Labels {
+				if !engine.stopTokens.IsStopToken(label) {
+					// 当正文中已存在关键字时，若不判断，位置信息将会丢失
+					if _, ok := tokensMap[label]; !ok {
+						tokensMap[label] = []int{}
+					}
+				}
+			}
+
+			indexerRequest := indexerAddDocReq{
+				doc: &types.DocIndex{
+					DocId:    request.docId,
+					TokenLen: float32(numTokens),
+					Keywords: make([]types.KeywordIndex, len(tokensMap)),
+				},
+				forceUpdate: request.forceUpdate,
+			}
+			iTokens := 0
+			for k, v := range tokensMap {
+				indexerRequest.doc.Keywords[iTokens] = types.KeywordIndex{
+					Text: k,
+					// 非分词标注的词频设置为0，不参与tf-idf计算
+					Frequency: float32(len(v)),
+					Starts:    v}
+				iTokens++
+			}
+
+			engine.indexerAddDocChans[shard] <- indexerRequest
+			if request.forceUpdate {
+				for i := 0; i < engine.initOptions.NumShards; i++ {
+					if i == shard {
+						continue
+					}
+					engine.indexerAddDocChans[i] <- indexerAddDocReq{forceUpdate: true}
+				}
+			}
+			rankerRequest := rankerAddDocReq{
+				// docId: request.docId, fields: request.data.Fields}
+				docId: request.docId, fields: request.data.Fields,
+				content: request.data.Content, attri: request.data.Attri}
+			engine.rankerAddDocChans[shard] <- rankerRequest
+		}
+
+	}
 }

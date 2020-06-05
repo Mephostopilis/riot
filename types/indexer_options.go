@@ -34,13 +34,13 @@ const (
 // IndexerOpts 初始化索引器选项
 type IndexerOpts struct {
 	// 索引表的类型，见上面的常数
-	IndexType int
+	IndexType int `toml:"indexType"`
 
 	// 待插入索引表文档 CACHE SIZE
-	DocCacheSize int
+	DocCacheSize int `toml:"docCacheSize"`
 
 	// BM25 参数
-	BM25Parameters *BM25Parameters
+	BM25Parameters *BM25Parameters `toml:"bm25Parameters"`
 }
 
 // BM25Parameters 见http://en.wikipedia.org/wiki/Okapi_BM25

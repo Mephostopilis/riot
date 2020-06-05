@@ -14,7 +14,6 @@ import (
 	"github.com/go-ego/riot/types"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/go-kratos/kratos/pkg/conf/paladin"
 	"github.com/go-kratos/kratos/pkg/log"
 )
 
@@ -57,8 +56,7 @@ func AddDocsWithLabels(engine *Engine) {
 		Content: "《复仇者联盟3：无限战争》是全片使用IMAX摄影机拍摄",
 		Labels:  []string{"复仇者", "战争"},
 	})
-	log.Info("engine.Segment(): ",
-		engine.Segment("《复仇者联盟3：无限战争》是全片使用IMAX摄影机拍摄"))
+	log.Info("engine.Segment(): %v", engine.Segment("《复仇者联盟3：无限战争》是全片使用IMAX摄影机拍摄"))
 
 	// docId++
 	engine.Index("2", types.DocData{
@@ -85,12 +83,13 @@ func AddDocsWithLabels(engine *Engine) {
 }
 
 func TestMain(m *testing.M) {
-	if err := paladin.Init(); err != nil {
-		panic(err)
-	}
+	// if err := paladin.Init(); err != nil {
+	// 	panic(err)
+	// }
 	log.Init(nil) // debug flag: log.dir={path}
 	defer log.Close()
-	log.Info("TestGetVer start")
+	log.Info("test start")
+	m.Run()
 }
 
 func TestGetVer(t *testing.T) {
@@ -101,11 +100,10 @@ func TestGetVer(t *testing.T) {
 
 func TestTry(t *testing.T) {
 	var arr []int
-
 	Try(func() {
 		fmt.Println(arr[2])
 	}, func(err interface{}) {
-		log.Info("err", err)
+		log.Info("err = %v", err)
 		assert.Equal(t, "runtime error: index out of range [2] with length 0", err)
 	})
 }
@@ -161,8 +159,10 @@ func TestReverseOrder(t *testing.T) {
 
 func TestOffsetAndMaxOutputs(t *testing.T) {
 	engine := New(types.EngineOpts{
-		Using:       1,
-		GseDict:     "./testdata/test_dict.txt",
+		SegmenterOpts: &types.SegmenterOpts{
+			Using:   1,
+			GseDict: "zh,./testdata/test_dict.txt",
+		},
 		DefRankOpts: &test.RankOptsMax3,
 		IndexerOpts: test.InxOpts,
 	})
@@ -232,8 +232,10 @@ func (criteria BM25ScoringCriteria) Score(doc types.IndexedDoc, fields interface
 
 func TestFrequenciesIndex(t *testing.T) {
 	var engine *Engine = New(types.EngineOpts{
-		Using:   1,
-		GseDict: "./testdata/test_dict.txt",
+		SegmenterOpts: &types.SegmenterOpts{
+			Using:   1,
+			GseDict: "zh,./testdata/test_dict.txt",
+		},
 		DefRankOpts: &types.RankOpts{
 			ScoringCriteria: BM25ScoringCriteria{},
 		},
@@ -260,8 +262,10 @@ func TestFrequenciesIndex(t *testing.T) {
 
 var (
 	useOpts = types.EngineOpts{
-		Using:   1,
-		GseDict: "./testdata/test_dict.txt",
+		SegmenterOpts: &types.SegmenterOpts{
+			Using:   1,
+			GseDict: "./testdata/test_dict.txt",
+		},
 		DefRankOpts: &types.RankOpts{
 			ScoringCriteria: test.TestScoringCriteria{},
 		},
@@ -354,7 +358,9 @@ func TestEngineIndexWithTokens(t *testing.T) {
 
 func testLabelsOpts(indexType int) types.EngineOpts {
 	return types.EngineOpts{
-		GseDict: "./data/dict/dictionary.txt",
+		SegmenterOpts: &types.SegmenterOpts{
+			GseDict: "./data/dict/dictionary.txt",
+		},
 		IndexerOpts: &types.IndexerOpts{
 			IndexType: indexType,
 		},
@@ -386,9 +392,11 @@ func TestEngineIndexWithContentAndLabels(t *testing.T) {
 
 func TestIndexWithLabelsStopTokenFile(t *testing.T) {
 	engine1 := New(types.EngineOpts{
-		GseDict:       "./data/dict/dictionary.txt",
-		StopTokenFile: "./testdata/test_stop_dict.txt",
-		IndexerOpts:   test.InxOpts,
+		SegmenterOpts: &types.SegmenterOpts{
+			GseDict:       "./data/dict/dictionary.txt",
+			StopTokenFile: "zh,./testdata/test_stop_dict.txt",
+		},
+		IndexerOpts: test.InxOpts,
 	})
 
 	AddDocsWithLabels(engine1)
@@ -407,13 +415,18 @@ func TestEngineIndexWithStore(t *testing.T) {
 	gob.Register(test.ScoringFields{})
 
 	var opts = types.EngineOpts{
-		Using:       1,
-		GseDict:     "./testdata/test_dict.txt",
+		SegmenterOpts: &types.SegmenterOpts{
+			Using:   1,
+			GseDict: "zh,./testdata/test_dict.txt",
+		},
+
 		DefRankOpts: &test.RankOptsMax10,
 		IndexerOpts: test.InxOpts,
-		UseStore:    true,
-		StoreFolder: "riot.persistent",
-		StoreShards: 2,
+		StoreOpts: &types.StoreOpts{
+			UseStore:    true,
+			StoreFolder: "riot.persistent",
+			StoreShards: 2,
+		},
 	}
 
 	engine := New(opts)
@@ -450,8 +463,10 @@ func TestEngineIndexWithStore(t *testing.T) {
 
 func TestCountDocsOnly(t *testing.T) {
 	var engine *Engine = New(types.EngineOpts{
-		Using:       1,
-		GseDict:     "./testdata/test_dict.txt",
+		SegmenterOpts: &types.SegmenterOpts{
+			Using:   1,
+			GseDict: "zh,./testdata/test_dict.txt",
+		},
 		DefRankOpts: &test.RankOptsMax1,
 		IndexerOpts: test.InxOpts,
 	})
@@ -513,10 +528,12 @@ func TestDocOrderless(t *testing.T) {
 var (
 	testIDInlyOpts = types.EngineOpts{
 		// Using:       1,
-		IDOnly:      true,
-		GseDict:     "./testdata/test_dict.txt",
+		SegmenterOpts: &types.SegmenterOpts{
+			GseDict: "./testdata/test_dict.txt",
+		},
 		DefRankOpts: &test.RankOptsMax1,
 		IndexerOpts: test.InxOpts,
+		IDOnly:      true,
 	}
 )
 
@@ -592,8 +609,10 @@ func TestSearchWithin(t *testing.T) {
 func testJPOpts(use int) types.EngineOpts {
 	return types.EngineOpts{
 		// Using:           1,
-		Using:       use,
-		GseDict:     "./testdata/test_dict_jp.txt",
+		SegmenterOpts: &types.SegmenterOpts{
+			Using:   use,
+			GseDict: "zh,./testdata/test_dict_jp.txt",
+		},
 		DefRankOpts: &test.RankOptsMax10Order,
 		IndexerOpts: test.InxOpts,
 	}
@@ -704,13 +723,13 @@ func TestSearchGse(t *testing.T) {
 func TestSearchNotUseGse(t *testing.T) {
 
 	engine := New(types.EngineOpts{
-		Using:     4,
-		NotUseGse: true,
+		SegmenterOpts: &types.SegmenterOpts{
+			Using: 4,
+		},
 	})
 
 	engine1 := New(types.EngineOpts{
-		IDOnly:    true,
-		NotUseGse: true,
+		IDOnly: true,
 	})
 
 	AddDocs(engine)
@@ -765,7 +784,9 @@ func TestSearchWithGse(t *testing.T) {
 	seg.LoadDict("zh") // ./data/dict/dictionary.txt
 
 	searcher2 := New(types.EngineOpts{
-		Using: 1,
+		SegmenterOpts: &types.SegmenterOpts{
+			Using: 1,
+		},
 	})
 	defer searcher2.Close()
 
@@ -803,14 +824,18 @@ func TestSearchWithGse(t *testing.T) {
 
 func TestRiotGse(t *testing.T) {
 	engine := New(types.EngineOpts{
-		Using: 1,
+		SegmenterOpts: &types.SegmenterOpts{
+			Using: 1,
+		},
 	})
 
 	AddDocs(engine)
 
 	engine1 := New(types.EngineOpts{
-		Using:   1,
-		GseMode: true,
+		SegmenterOpts: &types.SegmenterOpts{
+			Using:   1,
+			GseMode: true,
+		},
 	})
 
 	AddDocs(engine1)
@@ -880,7 +905,7 @@ func TestSearchLogic(t *testing.T) {
 	assert.Equal(t, "世界", outputs.Tokens[1])
 
 	outDocs := outputs.Docs.(types.ScoredDocs)
-	log.Info("outputs docs...", outDocs)
+	log.Info("outputs docs... %v", outDocs)
 	assert.Equal(t, "2", len(outDocs))
 
 	assert.Equal(t, "10", outDocs[0].DocId)

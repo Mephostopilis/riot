@@ -49,8 +49,10 @@ func (criteria TestScoringCriteria) Score(doc types.IndexedDoc, fields interface
 
 var (
 	EngOpts = types.EngineOpts{
-		Using:   1,
-		GseDict: "./testdata/test_dict.txt",
+		SegmenterOpts: &types.SegmenterOpts{
+			Using:   1,
+			GseDict: "./testdata/test_dict.txt",
+		},
 		DefRankOpts: &types.RankOpts{
 			ScoringCriteria: TestScoringCriteria{},
 		},
@@ -81,18 +83,25 @@ func (rule RankByTokenProximity) Score(
 
 func OrderlessOpts(idOnly bool) types.EngineOpts {
 	return types.EngineOpts{
-		Using:   1,
-		IDOnly:  idOnly,
-		GseDict: "./testdata/test_dict.txt",
+		SegmenterOpts: &types.SegmenterOpts{
+			Using:   1,
+			GseDict: "zh,./testdata/test_dict.txt",
+		},
+		IDOnly: idOnly,
 	}
 }
 
 func rankEngineOpts(rankOpts types.RankOpts) types.EngineOpts {
 	return types.EngineOpts{
-		Using:       1,
-		GseDict:     "./testdata/test_dict.txt",
+		SegmenterOpts: &types.SegmenterOpts{
+			Using:   1,
+			GseDict: "zh,./testdata/test_dict.txt",
+		},
 		DefRankOpts: &rankOpts,
 		IndexerOpts: InxOpts,
+		StoreOpts: &types.StoreOpts{
+			UseStore: false,
+		},
 	}
 }
 

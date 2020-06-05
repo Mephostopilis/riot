@@ -17,7 +17,6 @@ package riot
 
 import (
 	"bytes"
-	"log"
 	"os"
 	"runtime"
 	"strconv"
@@ -27,6 +26,7 @@ import (
 
 	"github.com/go-ego/riot/store"
 	"github.com/go-ego/riot/types"
+	"github.com/go-kratos/kratos/pkg/log"
 )
 
 type storeIndexDocReq struct {
@@ -37,45 +37,43 @@ type storeIndexDocReq struct {
 
 // InitStore initialize the persistent store channel
 func (engine *Engine) initStore(options *types.EngineOpts) {
-	engine.storeIndexDocChans = make(
-		[]chan storeIndexDocReq, engine.initOptions.StoreShards)
+	engine.storeIndexDocChans = make([]chan storeIndexDocReq, options.StoreOpts.StoreShards)
 
-	for shard := 0; shard < engine.initOptions.StoreShards; shard++ {
-		engine.storeIndexDocChans[shard] = make(
-			chan storeIndexDocReq)
+	for shard := 0; shard < options.StoreOpts.StoreShards; shard++ {
+		engine.storeIndexDocChans[shard] = make(chan storeIndexDocReq)
 	}
-	engine.storeInitChan = make(
-		chan bool, engine.initOptions.StoreShards)
+	engine.storeInitChan = make(chan bool, engine.initOptions.StoreOpts.StoreShards)
 }
 
 // Store start the persistent store work connection
 func (engine *Engine) startStore() {
-	options := engine.initOptions
+	options := engine.initOptions.StoreOpts
 	err := os.MkdirAll(options.StoreFolder, 0700)
 	if err != nil {
-		log.Fatalf("Can not create directory: %s ; %v", options.StoreFolder, err)
+		log.Error("Can not create directory: %s ; %v", options.StoreFolder, err)
 		return
 	}
 
 	// 打开或者创建数据库
-	engine.dbs = make([]store.Store, engine.initOptions.StoreShards)
-	for shard := 0; shard < engine.initOptions.StoreShards; shard++ {
-		dbPath := engine.initOptions.StoreFolder + "/" + options.StoreFilePrefix + "." + strconv.Itoa(shard)
+	engine.dbs = make([]store.Store, options.StoreShards)
+	for shard := 0; shard < options.StoreShards; shard++ {
+		dbPath := options.StoreFolder + "/" + options.StoreFilePrefix + "." + strconv.Itoa(shard)
 
-		db, err := store.OpenStore(dbPath, engine.initOptions.StoreEngine)
+		db, err := store.OpenStore(dbPath, options.StoreEngine)
 		if db == nil || err != nil {
-			log.Fatal("Unable to open database ", dbPath, ": ", err)
+			log.Error("Unable to open database %s:%v ", dbPath, err)
+			return
 		}
 		engine.dbs[shard] = db
 	}
 
 	// 从数据库中恢复
-	for shard := 0; shard < engine.initOptions.StoreShards; shard++ {
+	for shard := 0; shard < options.StoreShards; shard++ {
 		go engine.storeInit(shard)
 	}
 
 	// 等待恢复完成
-	for shard := 0; shard < engine.initOptions.StoreShards; shard++ {
+	for shard := 0; shard < options.StoreShards; shard++ {
 		<-engine.storeInitChan
 	}
 
@@ -92,19 +90,19 @@ func (engine *Engine) startStore() {
 	}
 
 	// 关闭并重新打开数据库
-	for shard := 0; shard < engine.initOptions.StoreShards; shard++ {
+	for shard := 0; shard < engine.initOptions.StoreOpts.StoreShards; shard++ {
 		engine.dbs[shard].Close()
-		dbPath := engine.initOptions.StoreFolder + "/" +
-			options.StoreFilePrefix + "." + strconv.Itoa(shard)
+		dbPath := engine.initOptions.StoreOpts.StoreFolder + "/" + options.StoreFilePrefix + "." + strconv.Itoa(shard)
 
-		db, err := store.OpenStore(dbPath, engine.initOptions.StoreEngine)
+		db, err := store.OpenStore(dbPath, engine.initOptions.StoreOpts.StoreEngine)
 		if db == nil || err != nil {
-			log.Fatal("Unable to open database ", dbPath, ": ", err)
+			log.Error("Unable to open database %s:%v ", dbPath, err)
+			return
 		}
 		engine.dbs[shard] = db
 	}
 
-	for shard := 0; shard < engine.initOptions.StoreShards; shard++ {
+	for shard := 0; shard < engine.initOptions.StoreOpts.StoreShards; shard++ {
 		go engine.storeIndexDoc(shard)
 	}
 }

@@ -23,7 +23,6 @@ package riot
 
 import (
 	"fmt"
-	"log"
 	"runtime"
 	"sort"
 	"strings"
@@ -39,6 +38,8 @@ import (
 	"github.com/go-ego/riot/types"
 	"github.com/go-ego/riot/utils"
 	"github.com/shirou/gopsutil/mem"
+
+	"github.com/go-kratos/kratos/pkg/log"
 )
 
 const (
@@ -66,11 +67,10 @@ type Engine struct {
 	initOptions types.EngineOpts
 
 	// 所有
+	segmenter  *gse.Segmenter
+	stopTokens StopTokens
 	indexers   []*core.Indexer
 	rankers    []*core.Ranker
-	segmenter  *gse.Segmenter
-	loaded     bool
-	stopTokens StopTokens
 	dbs        []store.Store
 
 	// 建立索引器使用的通信通道
@@ -97,18 +97,22 @@ func Default() (engine *Engine) {
 	)
 
 	opts := types.EngineOpts{
-		// Using:         using,
-		StoreShards: storageShards,
-		NumShards:   numShards,
+
+		SegmenterOpts: &types.SegmenterOpts{
+			// Using:         using,
+			GseDict: segmentDict,
+			// StopTokenFile: stopTokenFile,
+		},
+		NumShards: numShards,
 		IndexerOpts: &types.IndexerOpts{
 			IndexType: types.DocIdsIndex,
 		},
-		UseStore: true,
-		// StoreEngine: storageEngine,
-		GseDict: segmentDict,
-		// StopTokenFile: stopTokenFile,
+		StoreOpts: &types.StoreOpts{
+			StoreShards: storageShards,
+			UseStore:    true,
+		},
 	}
-	opts.Def()
+
 	engine = New(opts)
 
 	return
@@ -119,9 +123,7 @@ func New(options types.EngineOpts) (engine *Engine) {
 	// 将线程数设置为CPU数
 	// runtime.GOMAXPROCS(runtime.NumCPU())
 	// runtime.GOMAXPROCS(128)
-
 	options.Init()
-	options.Def()
 	engine = new(Engine)
 	engine.initOptions = options
 
@@ -137,7 +139,7 @@ func New(options types.EngineOpts) (engine *Engine) {
 	engine.CheckMem()
 
 	// 初始化持久化存储通道
-	if options.UseStore {
+	if options.StoreOpts.UseStore {
 		engine.initStore(&options)
 	}
 
@@ -147,13 +149,13 @@ func New(options types.EngineOpts) (engine *Engine) {
 
 func (engine *Engine) WithGse(seg *gse.Segmenter) {
 	engine.segmenter = seg
-	engine.loaded = true
 }
 
+// Startup
 func (engine *Engine) Startup() {
 	options := engine.initOptions
 	// 启动分词器
-	for iThread := 0; iThread < options.NumGseThreads; iThread++ {
+	for iThread := 0; iThread < options.SegmenterOpts.NumGseThreads; iThread++ {
 		go engine.segmenterWorker()
 	}
 
@@ -173,7 +175,7 @@ func (engine *Engine) Startup() {
 	}
 
 	// 启动持久化存储工作协程
-	if options.UseStore {
+	if options.StoreOpts.UseStore {
 		engine.startStore()
 	}
 }
@@ -182,15 +184,15 @@ func (engine *Engine) Startup() {
 // than 99.99% using the store
 func (engine *Engine) CheckMem() {
 	// Todo test
-	if !engine.initOptions.UseStore {
-		log.Println("Check virtualMemory...")
+	if !engine.initOptions.StoreOpts.UseStore {
+		log.Info("Check virtualMemory...")
 
 		vmem, _ := mem.VirtualMemory()
-		log.Printf("Total: %v, Free: %v, UsedPercent: %f%%\n", vmem.Total, vmem.Free, vmem.UsedPercent)
+		log.Info("Total: %v, Free: %v, UsedPercent: %f%%\n", vmem.Total, vmem.Free, vmem.UsedPercent)
 
 		useMem := fmt.Sprintf("%.2f", vmem.UsedPercent)
 		if useMem == "99.99" {
-			engine.initOptions.UseStore = true
+			engine.initOptions.StoreOpts.UseStore = true
 			// engine.initOptions.StoreFolder = DefaultPath
 			// os.MkdirAll(DefaultPath, 0777)
 		}
@@ -203,7 +205,7 @@ func (engine *Engine) CheckMem() {
 // 输入参数：
 //  docId	      标识文档编号，必须唯一，docId == 0 表示非法文档（用于强制刷新索引），[1, +oo) 表示合法文档
 //  data	      见 DocIndexData 注释
-//  forceUpdate 是否强制刷新 cache，如果设为 true，则尽快添加到索引，否则等待 cache 满之后一次全量添加
+//  forceUpdate   是否强制刷新 cache，如果设为 true，则尽快添加到索引，否则等待 cache 满之后一次全量添加
 //
 // 注意：
 //      1. 这个函数是线程安全的，请尽可能并发调用以提高索引速度
@@ -228,9 +230,9 @@ func (engine *Engine) Index(docId string, data types.DocData, forceUpdate ...boo
 	// data.Tokens
 	engine.internalIndexDoc(docId, data, force)
 
-	hash := murmur.Sum32(docId) % uint32(engine.initOptions.StoreShards)
+	hash := murmur.Sum32(docId) % uint32(engine.initOptions.StoreOpts.StoreShards)
 
-	if engine.initOptions.UseStore && docId != "0" {
+	if engine.initOptions.StoreOpts.UseStore && docId != "0" {
 		engine.storeIndexDocChans[hash] <- storeIndexDocReq{
 			docId: docId, data: data}
 	}
@@ -285,9 +287,9 @@ func (engine *Engine) RemoveDoc(docId string, forceUpdate ...bool) {
 		engine.rankerRemoveDocChans[shard] <- rankerRemoveDocReq{docId: docId}
 	}
 
-	if engine.initOptions.UseStore && docId != "0" {
+	if engine.initOptions.StoreOpts.UseStore && docId != "0" {
 		// 从数据库中删除
-		hash := murmur.Sum32(docId) % uint32(engine.initOptions.StoreShards)
+		hash := murmur.Sum32(docId) % uint32(engine.initOptions.StoreOpts.StoreShards)
 
 		go engine.storeRemoveDoc(docId, hash)
 	}
@@ -308,22 +310,19 @@ func (engine *Engine) RemoveDoc(docId string, forceUpdate ...bool) {
 // Segment get the word segmentation result of the text
 // 获取文本的分词结果, 只分词与过滤弃用词
 func (engine *Engine) Segment(content string) (keywords []string) {
-
 	var segments []string
-	hmm := engine.initOptions.Hmm
+	hmm := engine.initOptions.SegmenterOpts.Hmm
 
-	if engine.initOptions.GseMode {
+	if engine.initOptions.SegmenterOpts.GseMode {
 		segments = engine.segmenter.CutSearch(content, hmm)
 	} else {
 		segments = engine.segmenter.Cut(content, hmm)
 	}
-
 	for _, token := range segments {
 		if !engine.stopTokens.IsStopToken(token) {
 			keywords = append(keywords, token)
 		}
 	}
-
 	return
 }
 
@@ -333,19 +332,13 @@ func (engine *Engine) Tokens(request types.SearchReq) (tokens []string) {
 	// tokens := []string{}
 	if request.Text != "" {
 		reqText := strings.ToLower(request.Text)
-		if engine.initOptions.NotUseGse {
-			tokens = strings.Split(reqText, " ")
-		} else {
-			// querySegments := engine.segmenter.Segment([]byte(reqText))
-			// tokens = engine.Tokens([]byte(reqText))
-			tokens = engine.Segment(reqText)
-		}
+		tokens = engine.Segment(reqText)
 
 		// 叠加 tokens
+		// TODO: 去掉外界分词功能，不留接口
 		for _, t := range request.Tokens {
 			tokens = append(tokens, t)
 		}
-
 		return
 	}
 
@@ -368,16 +361,14 @@ func maxRankOutput(rankOpts types.RankOpts, rankLen int) (int, int) {
 	return start, end
 }
 
-func (engine *Engine) rankOutID(rankerOutput rankerReturnReq,
-	rankOutArr types.ScoredIDs) types.ScoredIDs {
+func (engine *Engine) rankOutID(rankerOutput rankerReturnReq, rankOutArr types.ScoredIDs) types.ScoredIDs {
 	for _, doc := range rankerOutput.docs.(types.ScoredIDs) {
 		rankOutArr = append(rankOutArr, doc)
 	}
 	return rankOutArr
 }
 
-func (engine *Engine) rankOutDocs(rankerOutput rankerReturnReq,
-	rankOutArr types.ScoredDocs) types.ScoredDocs {
+func (engine *Engine) rankOutDocs(rankerOutput rankerReturnReq, rankOutArr types.ScoredDocs) types.ScoredDocs {
 	for _, doc := range rankerOutput.docs.(types.ScoredDocs) {
 		rankOutArr = append(rankOutArr, doc)
 	}
@@ -423,8 +414,7 @@ func (engine *Engine) TimeOut(request types.SearchReq,
 	rankerReturnChan chan rankerReturnReq) (
 	rankOutArr interface{}, numDocs int, isTimeout bool) {
 
-	deadline := time.Now().Add(time.Nanosecond *
-		time.Duration(NumNanosecondsInAMillisecond*request.Timeout))
+	deadline := time.Now().Add(time.Nanosecond * time.Duration(NumNanosecondsInAMillisecond*request.Timeout))
 
 	var (
 		rankOutID  types.ScoredIDs
@@ -577,7 +567,7 @@ func (engine *Engine) Flush() {
 		rmd := numRm == atomic.LoadUint64(&engine.numDocsRemoved)
 
 		nums := engine.numIndexingReqs == atomic.LoadUint64(&engine.numDocsStored)
-		stored := !engine.initOptions.UseStore || nums
+		stored := !engine.initOptions.StoreOpts.UseStore || nums
 
 		if inxd && rmd && stored {
 			// 保证 CHANNEL 中 REQUESTS 全部被执行完
@@ -610,7 +600,7 @@ func (engine *Engine) FlushIndex() {
 // 关闭引擎
 func (engine *Engine) Close() {
 	engine.Flush()
-	if engine.initOptions.UseStore {
+	if engine.initOptions.StoreOpts.UseStore {
 		for _, db := range engine.dbs {
 			db.Close()
 		}
