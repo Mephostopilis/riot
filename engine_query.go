@@ -17,85 +17,12 @@ package riot
 import (
 	"bytes"
 	"log"
-	"os"
-	"strings"
 
 	"encoding/gob"
 
 	"github.com/go-ego/murmur"
 	"github.com/go-ego/riot/types"
-	toml "github.com/go-vgo/gt/conf"
 )
-
-// New create a new engine with mode
-func New(conf ...interface{}) *Engine {
-	// func (engine *Engine) New(conf com.Config) *Engine{
-	if len(conf) > 0 && strings.HasSuffix(conf[0].(string), ".toml") {
-		var (
-			config   types.EngineOpts
-			searcher = &Engine{}
-		)
-
-		fs := conf[0].(string)
-		log.Println("conf path is: ", fs)
-		toml.Init(fs, &config)
-		go toml.Watch(fs, &config)
-
-		searcher.Init(config)
-		return searcher
-	}
-
-	return NewEngine(conf...)
-}
-
-// NewEngine create a new engine
-func NewEngine(conf ...interface{}) *Engine {
-	var (
-		searcher = &Engine{}
-
-		path          = DefaultPath
-		storageShards = 10
-		numShards     = 10
-
-		segmentDict string
-	)
-
-	if len(conf) > 0 {
-		segmentDict = conf[0].(string)
-	}
-
-	if len(conf) > 1 {
-		path = conf[1].(string)
-	}
-
-	if len(conf) > 2 {
-		numShards = conf[2].(int)
-		storageShards = conf[2].(int)
-	}
-
-	searcher.Init(types.EngineOpts{
-		// Using:         using,
-		StoreShards: storageShards,
-		NumShards:   numShards,
-		IndexerOpts: &types.IndexerOpts{
-			IndexType: types.DocIdsIndex,
-		},
-		UseStore:    true,
-		StoreFolder: path,
-		// StoreEngine: storageEngine,
-		GseDict: segmentDict,
-		// StopTokenFile: stopTokenFile,
-	})
-
-	// defer searcher.Close()
-	os.MkdirAll(path, 0777)
-
-	// 等待索引刷新完毕
-	// searcher.Flush()
-	// log.Println("recover index number: ", searcher.NumDocsIndexed())
-
-	return searcher
-}
 
 // func (engine *Engine) IsDocExist(docId uint64) bool {
 // 	return core.IsDocExist(docId)
@@ -186,4 +113,73 @@ func Try(fun func(), handler func(interface{})) {
 		}
 	}()
 	fun()
+}
+
+// SearchDoc find the document that satisfies the search criteria.
+// This function is thread safe, return not IDonly
+func (engine *Engine) SearchDoc(request types.SearchReq) (output types.SearchDoc) {
+	resp := engine.Search(request)
+	return types.SearchDoc{
+		BaseResp: resp.BaseResp,
+		Docs:     resp.Docs.(types.ScoredDocs),
+	}
+}
+
+// SearchID find the document that satisfies the search criteria.
+// This function is thread safe, return IDonly
+func (engine *Engine) SearchID(request types.SearchReq) (output types.SearchID) {
+	// return types.SearchID(engine.Search(request))
+	resp := engine.Search(request)
+	return types.SearchID{
+		BaseResp: resp.BaseResp,
+		Docs:     resp.Docs.(types.ScoredIDs),
+	}
+}
+
+// Search find the document that satisfies the search criteria.
+// This function is thread safe
+// 查找满足搜索条件的文档，此函数线程安全
+func (engine *Engine) Search(request types.SearchReq) (output types.SearchResp) {
+
+	tokens := engine.Tokens(request)
+
+	var rankOpts types.RankOpts
+	if request.RankOpts == nil {
+		rankOpts = *engine.initOptions.DefRankOpts
+	} else {
+		rankOpts = *request.RankOpts
+	}
+
+	if rankOpts.ScoringCriteria == nil {
+		rankOpts.ScoringCriteria = engine.initOptions.DefRankOpts.ScoringCriteria
+	}
+
+	// 建立排序器返回的通信通道
+	rankerReturnChan := make(
+		chan rankerReturnReq, engine.initOptions.NumShards)
+
+	// 生成查找请求
+	lookupRequest := indexerLookupReq{
+		countDocsOnly:    request.CountDocsOnly,
+		tokens:           tokens,
+		labels:           request.Labels,
+		docIds:           request.DocIds,
+		options:          rankOpts,
+		rankerReturnChan: rankerReturnChan,
+		orderless:        request.Orderless,
+		logic:            request.Logic,
+	}
+
+	// 向索引器发送查找请求
+	for shard := 0; shard < engine.initOptions.NumShards; shard++ {
+		engine.indexerLookupChans[shard] <- lookupRequest
+	}
+
+	if engine.initOptions.IDOnly {
+		output = engine.RankID(request, rankOpts, tokens, rankerReturnChan)
+		return
+	}
+
+	output = engine.Ranks(request, rankOpts, tokens, rankerReturnChan)
+	return
 }

@@ -47,7 +47,6 @@ func (st *StopTokens) Init(stopTokenFile string) {
 			st.stopTokens[text] = true
 		}
 	}
-
 }
 
 // IsStopToken to determine whether to stop token

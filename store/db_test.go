@@ -15,24 +15,34 @@
 package store
 
 import (
-	"log"
 	"os"
 	"testing"
 
-	"github.com/influxdata/influxdb/pkg/testing/assert"
-	"github.com/vcaesar/tt"
+	"github.com/go-kratos/kratos/pkg/conf/paladin"
+	"github.com/go-kratos/kratos/pkg/log"
+	"github.com/stretchr/testify/assert"
 )
 
 var TestDBName = "./db_test"
+
+func TestMain(m *testing.M) {
+	if err := paladin.Init(); err != nil {
+		panic(err)
+	}
+	log.Init(nil) // debug flag: log.dir={path}
+	defer log.Close()
+	log.Info("TestGetVer start")
+}
 
 func TestBadger(t *testing.T) {
 	db, err := OpenBadger(TestDBName)
 	assert.Equal(t, "<nil>", err)
 	if err != nil {
-		log.Panic(err)
+		log.Error("%v", err)
+		return
 	}
 
-	log.Println("TestBadger...")
+	log.Error("TestBadger...")
 	DBTest(t, db)
 	// defer db.Close()
 }
@@ -41,10 +51,11 @@ func TestLdb(t *testing.T) {
 	db, err := OpenLeveldb(TestDBName)
 	assert.Equal(t, "<nil>", err)
 	if err != nil {
-		log.Panic(err)
+		log.Error("%v", err)
+		return
 	}
 
-	log.Println("TestLdb...")
+	log.Info("TestLdb...")
 	DBTest(t, db)
 	// defer db.Close()
 }
@@ -53,25 +64,26 @@ func TestBolt(t *testing.T) {
 	db, err := OpenBolt(TestDBName)
 	assert.Equal(t, "<nil>", err)
 	if err != nil {
-		log.Panic(err)
+		log.Error("%v", err)
+		return
 	}
 
-	log.Println("TestBolt...")
+	log.Info("TestBolt...")
 	DBTest(t, db)
 	// defer db.Close()
 }
 
 func DBTest(t *testing.T, db Store) {
-	log.Println("db test...")
+	log.Info("db test...")
 	os.MkdirAll(TestDBName, 0777)
 
 	err := db.Set([]byte("key1"), []byte("value1"))
 	assert.Equal(t, "<nil>", err)
 
 	has, err := db.Has([]byte("key1"))
-	tt.Equal(t, nil, err)
+	assert.Equal(t, nil, err)
 	if err == nil {
-		tt.Equal(t, true, has)
+		assert.Equal(t, true, has)
 	}
 
 	buf := make([]byte, 100)

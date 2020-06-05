@@ -16,6 +16,7 @@
 package riot
 
 import (
+	"github.com/go-ego/riot/core"
 	"github.com/go-ego/riot/types"
 )
 
@@ -43,6 +44,36 @@ type rankerReturnReq struct {
 
 type rankerRemoveDocReq struct {
 	docId string
+}
+
+// Ranker initialize the ranker channel
+func (engine *Engine) initRanker(options *types.EngineOpts) {
+	// 初始化索引器和排序器
+	for shard := 0; shard < options.NumShards; shard++ {
+
+		ranker, _ := core.NewRanker(options.IDOnly)
+		engine.rankers[shard] = ranker
+	}
+
+	engine.rankerAddDocChans = make(
+		[]chan rankerAddDocReq, options.NumShards)
+
+	engine.rankerRankChans = make(
+		[]chan rankerRankReq, options.NumShards)
+
+	engine.rankerRemoveDocChans = make(
+		[]chan rankerRemoveDocReq, options.NumShards)
+
+	for shard := 0; shard < options.NumShards; shard++ {
+		engine.rankerAddDocChans[shard] = make(
+			chan rankerAddDocReq, options.RankerBufLen)
+
+		engine.rankerRankChans[shard] = make(
+			chan rankerRankReq, options.RankerBufLen)
+
+		engine.rankerRemoveDocChans[shard] = make(
+			chan rankerRemoveDocReq, options.RankerBufLen)
+	}
 }
 
 func (engine *Engine) rankerAddDoc(shard int) {

@@ -3,7 +3,6 @@ package riot
 import (
 	"encoding/gob"
 	"fmt"
-	"log"
 	"os"
 	"reflect"
 	"runtime"
@@ -11,16 +10,93 @@ import (
 	"testing"
 
 	"github.com/go-ego/gse"
+	"github.com/go-ego/riot/test"
 	"github.com/go-ego/riot/types"
 	"github.com/stretchr/testify/assert"
-	"github.com/vcaesar/tt"
+
+	"github.com/go-kratos/kratos/pkg/conf/paladin"
+	"github.com/go-kratos/kratos/pkg/log"
 )
+
+func AddDocs(engine *Engine) {
+	engine.Index("1", types.DocData{
+		Content: "The world, 有七十亿人口人口",
+		Fields:  test.Score1,
+	})
+
+	engine.IndexDoc("2", types.DocIndexData{
+		Content: "The world, 人口",
+		Fields:  nil,
+	})
+
+	engine.Index("3", types.DocData{
+		Content: "The world",
+		Fields:  nil,
+	})
+
+	engine.Index("4", types.DocData{
+		Content: "有人口",
+		Fields:  test.ScoringFields{2, 3, 1},
+	})
+
+	engine.Index("5", types.DocData{
+		Content: "The world, 七十亿人口",
+		Fields:  test.Score091,
+	})
+
+	engine.Index("6", types.DocData{
+		Content: "有七十亿人口",
+		Fields:  test.ScoringFields{2, 3, 3},
+	})
+
+	engine.Flush()
+}
+
+func AddDocsWithLabels(engine *Engine) {
+	engine.Index("1", types.DocData{
+		Content: "《复仇者联盟3：无限战争》是全片使用IMAX摄影机拍摄",
+		Labels:  []string{"复仇者", "战争"},
+	})
+	log.Println("engine.Segment(): ",
+		engine.Segment("《复仇者联盟3：无限战争》是全片使用IMAX摄影机拍摄"))
+
+	// docId++
+	engine.Index("2", types.DocData{
+		Content: "在IMAX影院放映时",
+		Labels:  []string{"影院"},
+	})
+
+	engine.Index("3", types.DocData{
+		Content: " Google 是世界最大搜索引擎, baidu 是最大中文的搜索引擎",
+		Labels:  []string{"Google"},
+	})
+
+	engine.Index("4", types.DocData{
+		Content: "Google 在研制无人汽车",
+		Labels:  []string{"Google"},
+	})
+
+	engine.Index("5", types.DocData{
+		Content: " GAMAF 世界五大互联网巨头, BAT 是中国互联网三巨头",
+		Labels:  []string{"互联网"},
+	})
+
+	engine.Flush()
+}
+
+func TestMain(m *testing.M) {
+	if err := paladin.Init(); err != nil {
+		panic(err)
+	}
+	log.Init(nil) // debug flag: log.dir={path}
+	defer log.Close()
+	log.Info("TestGetVer start")
+}
 
 func TestGetVer(t *testing.T) {
 	fmt.Println("go version: ", runtime.Version())
 	ver := GetVersion()
 	assert.Equal(t, Version, ver)
-	tt.Equal(t, Version, ver)
 }
 
 func TestTry(t *testing.T) {
@@ -29,18 +105,19 @@ func TestTry(t *testing.T) {
 	Try(func() {
 		fmt.Println(arr[2])
 	}, func(err interface{}) {
-		log.Println("err", err)
+		log.Info("err", err)
 		assert.Equal(t, "runtime error: index out of range [2] with length 0", err)
 	})
 }
 
 func TestEngineIndexDoc(t *testing.T) {
-	var engine Engine
-	engine.Init(TestIndexOpts)
 
-	AddDocs(&engine)
+	engine := New(&test.TestIndexOpts)
+	engine.Startup()
 
-	outputs := engine.Search(Req1)
+	AddDocs(engine)
+
+	outputs := engine.Search(test.Req1)
 	assert.Equal(t, "2", len(outputs.Tokens))
 	assert.Equal(t, "world", outputs.Tokens[0])
 	assert.Equal(t, "人口", outputs.Tokens[1])
@@ -48,7 +125,7 @@ func TestEngineIndexDoc(t *testing.T) {
 	outDocs := outputs.Docs.(types.ScoredDocs)
 	assert.Equal(t, "3", len(outDocs))
 
-	log.Println("TestEngineIndexDoc:", outDocs)
+	log.Info("TestEngineIndexDoc: %v", outDocs)
 	assert.Equal(t, "2", outDocs[0].DocId)
 	assert.Equal(t, "333", int(outDocs[0].Scores[0]*1000))
 	assert.Equal(t, "[4 11]", outDocs[0].TokenSnippetLocs)
@@ -65,12 +142,12 @@ func TestEngineIndexDoc(t *testing.T) {
 }
 
 func TestReverseOrder(t *testing.T) {
-	var engine Engine
-	engine.Init(orderOpts)
+	engine := New(&test.OrderOpts)
+	engine.Startup()
 
-	AddDocs(&engine)
+	AddDocs(engine)
 
-	outputs := engine.Search(Req1)
+	outputs := engine.Search(test.Req1)
 
 	outDocs := outputs.Docs.(types.ScoredDocs)
 	assert.Equal(t, "3", len(outDocs))
@@ -83,62 +160,38 @@ func TestReverseOrder(t *testing.T) {
 }
 
 func TestOffsetAndMaxOutputs(t *testing.T) {
-	var engine Engine
-	engine.Init(types.EngineOpts{
+	engine := New(&types.EngineOpts{
 		Using:       1,
 		GseDict:     "./testdata/test_dict.txt",
-		DefRankOpts: &rankOptsMax3,
-		IndexerOpts: inxOpts,
+		DefRankOpts: &test.RankOptsMax3,
+		IndexerOpts: test.InxOpts,
 	})
+	engine.Startup()
 
-	AddDocs(&engine)
+	AddDocs(engine)
 
-	outputs := engine.Search(Req1)
+	outputs := engine.Search(test.Req1)
 
 	outDocs := outputs.Docs.(types.ScoredDocs)
 	assert.Equal(t, "2", len(outDocs))
-
 	assert.Equal(t, "5", outDocs[0].DocId)
 	assert.Equal(t, "2", outDocs[1].DocId)
 
 	engine.Close()
 }
 
-type TestScoringCriteria struct {
-}
-
-func (criteria TestScoringCriteria) Score(
-	doc types.IndexedDoc, fields interface{}) []float32 {
-	if reflect.TypeOf(fields) != reflect.TypeOf(ScoringFields{}) {
-		return []float32{}
-	}
-	fs := fields.(ScoringFields)
-	return []float32{float32(doc.TokenProximity)*fs.A + fs.B*fs.C}
-}
-
-var (
-	engOpts = types.EngineOpts{
-		Using:   1,
-		GseDict: "./testdata/test_dict.txt",
-		DefRankOpts: &types.RankOpts{
-			ScoringCriteria: TestScoringCriteria{},
-		},
-		IndexerOpts: inxOpts,
-	}
-)
-
 func TestSearchWithCriteria(t *testing.T) {
-	var engine Engine
-	engine.Init(engOpts)
+	engine := New(&test.EngOpts)
+	engine.Startup()
 
-	AddDocs(&engine)
+	AddDocs(engine)
 
-	outputs := engine.Search(Req1)
+	outputs := engine.Search(test.Req1)
 
 	outDocs := outputs.Docs.(types.ScoredDocs)
 	assert.Equal(t, "2", len(outDocs))
 
-	log.Println(outDocs)
+	log.Info("%v", outDocs)
 	assert.Equal(t, "1", outDocs[0].DocId)
 	assert.Equal(t, "20000", int(outDocs[0].Scores[0]*1000))
 
@@ -149,12 +202,11 @@ func TestSearchWithCriteria(t *testing.T) {
 }
 
 func TestCompactIndex(t *testing.T) {
-	var engine Engine
-	engine.Init(useOpts)
+	engine := New(&useOpts)
 
-	AddDocs(&engine)
+	AddDocs(engine)
 
-	outputs := engine.Search(Req1)
+	outputs := engine.Search(test.Req1)
 
 	outDocs := outputs.Docs.(types.ScoredDocs)
 	assert.Equal(t, "2", len(outDocs))
@@ -171,17 +223,15 @@ func TestCompactIndex(t *testing.T) {
 type BM25ScoringCriteria struct {
 }
 
-func (criteria BM25ScoringCriteria) Score(
-	doc types.IndexedDoc, fields interface{}) []float32 {
-	if reflect.TypeOf(fields) != reflect.TypeOf(ScoringFields{}) {
+func (criteria BM25ScoringCriteria) Score(doc types.IndexedDoc, fields interface{}) []float32 {
+	if reflect.TypeOf(fields) != reflect.TypeOf(test.ScoringFields{}) {
 		return []float32{}
 	}
 	return []float32{doc.BM25}
 }
 
 func TestFrequenciesIndex(t *testing.T) {
-	var engine Engine
-	engine.Init(types.EngineOpts{
+	var engine *Engine = New(types.EngineOpts{
 		Using:   1,
 		GseDict: "./testdata/test_dict.txt",
 		DefRankOpts: &types.RankOpts{
@@ -192,9 +242,9 @@ func TestFrequenciesIndex(t *testing.T) {
 		},
 	})
 
-	AddDocs(&engine)
+	AddDocs(engine)
 
-	outputs := engine.Search(Req1)
+	outputs := engine.Search(test.Req1)
 
 	outDocs := outputs.Docs.(types.ScoredDocs)
 	assert.Equal(t, "2", len(outDocs))
@@ -213,28 +263,26 @@ var (
 		Using:   1,
 		GseDict: "./testdata/test_dict.txt",
 		DefRankOpts: &types.RankOpts{
-			ScoringCriteria: TestScoringCriteria{},
+			ScoringCriteria: test.TestScoringCriteria{},
 		},
 	}
 )
 
 func TestRemoveDoc(t *testing.T) {
-	var engine Engine
-	engine.Init(useOpts)
+	engine := New(useOpts)
 
-	AddDocs(&engine)
+	AddDocs(engine)
 
 	engine.RemoveDoc("5")
 	engine.RemoveDoc("6")
 	engine.Flush()
-
 	engine.Index("6", types.DocData{
 		Content: "World, 人口有七十亿",
-		Fields:  score091,
+		Fields:  test.Score091,
 	})
 	engine.Flush()
 
-	outputs := engine.Search(Req1)
+	outputs := engine.Search(test.Req1)
 
 	outDocs := outputs.Docs.(types.ScoredDocs)
 	assert.Equal(t, "2", len(outDocs))
@@ -248,8 +296,7 @@ func TestRemoveDoc(t *testing.T) {
 }
 
 func TestEngineIndexWithTokens(t *testing.T) {
-	var engine Engine
-	engine.Init(TestIndexOpts)
+	engine := New(&test.TestIndexOpts)
 
 	data1 := types.TokenData{
 		Text:      "world",
@@ -262,7 +309,7 @@ func TestEngineIndexWithTokens(t *testing.T) {
 			data1,
 			{"人口", []int{18, 24}},
 		},
-		Fields: score1,
+		Fields: test.Score1,
 	})
 
 	// docId++
@@ -272,17 +319,17 @@ func TestEngineIndexWithTokens(t *testing.T) {
 			data1,
 			{"人口", []int{6}},
 		},
-		Fields: score1,
+		Fields: test.Score1,
 	})
 
 	engine.Index("3", types.DocData{
 		Content: "The world, 七十亿人口",
-		Fields:  score091,
+		Fields:  test.Score091,
 	})
 	engine.FlushIndex()
 
-	outputs := engine.Search(Req1)
-	log.Println("TestEngineIndexWithTokens: ", outputs)
+	outputs := engine.Search(test.Req1)
+	log.Info("TestEngineIndexWithTokens: %v", outputs)
 	assert.Equal(t, "2", len(outputs.Tokens))
 	assert.Equal(t, "world", outputs.Tokens[0])
 	assert.Equal(t, "人口", outputs.Tokens[1])
@@ -315,15 +362,15 @@ func testLabelsOpts(indexType int) types.EngineOpts {
 }
 
 func TestEngineIndexWithContentAndLabels(t *testing.T) {
-	var engine1, engine2 Engine
-	engine1.Init(testLabelsOpts(types.LocsIndex))
-	engine2.Init(testLabelsOpts(types.DocIdsIndex))
 
-	AddDocsWithLabels(&engine1)
-	AddDocsWithLabels(&engine2)
+	engine1 := New(testLabelsOpts(types.LocsIndex))
+	engine2 := New(testLabelsOpts(types.DocIdsIndex))
 
-	outputs1 := engine1.Search(reqG)
-	outputs2 := engine2.Search(reqG)
+	AddDocsWithLabels(engine1)
+	AddDocsWithLabels(engine2)
+
+	outputs1 := engine1.Search(test.ReqG)
+	outputs2 := engine2.Search(test.ReqG)
 	assert.Equal(t, "1", len(outputs1.Tokens))
 	assert.Equal(t, "1", len(outputs2.Tokens))
 	assert.Equal(t, "google", outputs1.Tokens[0])
@@ -338,18 +385,16 @@ func TestEngineIndexWithContentAndLabels(t *testing.T) {
 }
 
 func TestIndexWithLabelsStopTokenFile(t *testing.T) {
-	var engine1 Engine
-
-	engine1.Init(types.EngineOpts{
+	engine1 := New(types.EngineOpts{
 		GseDict:       "./data/dict/dictionary.txt",
 		StopTokenFile: "./testdata/test_stop_dict.txt",
-		IndexerOpts:   inxOpts,
+		IndexerOpts:   test.InxOpts,
 	})
 
-	AddDocsWithLabels(&engine1)
+	AddDocsWithLabels(engine1)
 
-	outputs1 := engine1.Search(reqG)
-	outputsDoc := engine1.SearchDoc(reqG)
+	outputs1 := engine1.Search(test.ReqG)
+	outputsDoc := engine1.SearchDoc(test.ReqG)
 	assert.Equal(t, "1", len(outputs1.Tokens))
 	// assert.Equal(t, "Google", outputs1.Tokens[0])
 
@@ -359,33 +404,31 @@ func TestIndexWithLabelsStopTokenFile(t *testing.T) {
 }
 
 func TestEngineIndexWithStore(t *testing.T) {
-	gob.Register(ScoringFields{})
+	gob.Register(test.ScoringFields{})
 
 	var opts = types.EngineOpts{
 		Using:       1,
 		GseDict:     "./testdata/test_dict.txt",
-		DefRankOpts: &rankOptsMax10,
-		IndexerOpts: inxOpts,
+		DefRankOpts: &test.RankOptsMax10,
+		IndexerOpts: test.InxOpts,
 		UseStore:    true,
 		StoreFolder: "riot.persistent",
 		StoreShards: 2,
 	}
 
-	var engine Engine
-	engine.Init(opts)
+	engine := New(opts)
 
-	AddDocs(&engine)
+	AddDocs(engine)
 
 	engine.RemoveDoc("5", true)
 	engine.Flush()
 
 	engine.Close()
 
-	var engine1 Engine
-	engine1.Init(opts)
+	engine1 := New(opts)
 	engine1.Flush()
 
-	outputs := engine1.Search(Req1)
+	outputs := engine1.Search(test.Req1)
 	assert.Equal(t, "2", len(outputs.Tokens))
 	assert.Equal(t, "world", outputs.Tokens[0])
 	assert.Equal(t, "人口", outputs.Tokens[1])
@@ -406,21 +449,20 @@ func TestEngineIndexWithStore(t *testing.T) {
 }
 
 func TestCountDocsOnly(t *testing.T) {
-	var engine Engine
-	engine.Init(types.EngineOpts{
+	var engine *Engine = New(types.EngineOpts{
 		Using:       1,
 		GseDict:     "./testdata/test_dict.txt",
-		DefRankOpts: &rankOptsMax1,
-		IndexerOpts: inxOpts,
+		DefRankOpts: &test.RankOptsMax1,
+		IndexerOpts: test.InxOpts,
 	})
 
-	AddDocs(&engine)
+	AddDocs(engine)
 
 	engine.RemoveDoc("5")
 	engine.Flush()
 
 	outputs := engine.Search(
-		types.SearchReq{Text: reqText, CountDocsOnly: true},
+		types.SearchReq{Text: test.ReqText, CountDocsOnly: true},
 	)
 	// assert.Equal(t, "0", len(outputs.Docs))
 	if outputs.Docs == nil {
@@ -433,10 +475,10 @@ func TestCountDocsOnly(t *testing.T) {
 }
 
 func TestDocOrderless(t *testing.T) {
-	var engine, engine1 Engine
-	engine.Init(OrderlessOpts(false))
 
-	AddDocs(&engine)
+	engine := New(test.OrderlessOpts(false))
+
+	AddDocs(engine)
 
 	engine.RemoveDoc("5")
 	engine.Flush()
@@ -450,9 +492,9 @@ func TestDocOrderless(t *testing.T) {
 	assert.Equal(t, "2", len(outputs.Tokens))
 	assert.Equal(t, "2", outputs.NumDocs)
 
-	engine1.Init(OrderlessOpts(true))
+	engine1 := New(test.OrderlessOpts(true))
 
-	AddDocs(&engine1)
+	AddDocs(engine1)
 
 	engine1.RemoveDoc("5")
 	engine1.Flush()
@@ -473,22 +515,21 @@ var (
 		// Using:       1,
 		IDOnly:      true,
 		GseDict:     "./testdata/test_dict.txt",
-		DefRankOpts: &rankOptsMax1,
-		IndexerOpts: inxOpts,
+		DefRankOpts: &test.RankOptsMax1,
+		IndexerOpts: test.InxOpts,
 	}
 )
 
 func TestDocOnlyID(t *testing.T) {
-	var engine Engine
-	engine.Init(testIDInlyOpts)
-	AddDocs(&engine)
+	engine := New(testIDInlyOpts)
+	AddDocs(engine)
 
 	engine.RemoveDoc("5")
 	engine.Flush()
 
 	req := types.SearchReq{
-		Text:   reqText,
-		DocIds: makeDocIds(),
+		Text:   test.ReqText,
+		DocIds: test.MakeDocIds(),
 	}
 	outputs := engine.Search(req)
 	outputsID := engine.SearchID(req)
@@ -502,9 +543,9 @@ func TestDocOnlyID(t *testing.T) {
 	assert.Equal(t, "2", outputs.NumDocs)
 
 	outputs1 := engine.Search(types.SearchReq{
-		Text:    reqText,
+		Text:    test.ReqText,
 		Timeout: 10,
-		DocIds:  makeDocIds(),
+		DocIds:  test.MakeDocIds(),
 	})
 
 	if outputs1.Docs != nil {
@@ -518,17 +559,16 @@ func TestDocOnlyID(t *testing.T) {
 }
 
 func TestSearchWithin(t *testing.T) {
-	var engine Engine
-	engine.Init(orderOpts)
+	engine := New(test.OrderOpts)
 
-	AddDocs(&engine)
+	AddDocs(engine)
 
 	docIds := make(map[string]bool)
 	docIds["5"] = true
 	docIds["1"] = true
 
 	outputs := engine.Search(types.SearchReq{
-		Text:   reqText,
+		Text:   test.ReqText,
 		DocIds: docIds,
 	})
 	assert.Equal(t, "2", len(outputs.Tokens))
@@ -554,20 +594,20 @@ func testJPOpts(use int) types.EngineOpts {
 		// Using:           1,
 		Using:       use,
 		GseDict:     "./testdata/test_dict_jp.txt",
-		DefRankOpts: &rankOptsMax10Order,
-		IndexerOpts: inxOpts,
+		DefRankOpts: &test.RankOptsMax10Order,
+		IndexerOpts: test.InxOpts,
 	}
 }
 
 func TestSearchJp(t *testing.T) {
-	var engine Engine
-	engine.Init(testJPOpts(1))
 
-	AddDocs(&engine)
+	engine := New(testJPOpts(1))
+
+	AddDocs(engine)
 
 	engine.Index("7", types.DocData{
-		Content: textJP1,
-		Fields:  score1,
+		Content: test.TextJP1,
+		Fields:  test.Score1,
 	})
 	engine.Flush()
 
@@ -577,7 +617,7 @@ func TestSearchJp(t *testing.T) {
 	docIds["7"] = true
 
 	outputs := engine.Search(types.SearchReq{
-		Text:   textJP,
+		Text:   test.TextJP,
 		DocIds: docIds,
 	})
 
@@ -586,7 +626,7 @@ func TestSearchJp(t *testing.T) {
 	assert.Equal(t, "世界", outputs.Tokens[1])
 
 	outDocs := outputs.Docs.(types.ScoredDocs)
-	log.Println("outputs docs...", outDocs)
+	log.Info("outputs docs... %v", outDocs)
 	assert.Equal(t, "1", len(outDocs))
 
 	assert.Equal(t, "7", outDocs[0].DocId)
@@ -617,28 +657,28 @@ func tokenData() []types.TokenData {
 }
 
 func TestSearchGse(t *testing.T) {
-	log.Println("Test search gse ...")
-	var engine Engine
-	engine.Init(testJPOpts(0))
+	log.Info("Test search gse ...")
 
-	AddDocs(&engine)
+	engine := New(testJPOpts(0))
+
+	AddDocs(engine)
 
 	engine.Index("7", types.DocData{
-		Content: textJP1,
-		Fields:  score1,
+		Content: test.TextJP1,
+		Fields:  test.Score1,
 	})
 
 	tokenDatas := tokenData()
 	engine.Index("8", types.DocData{
-		Content: text1,
+		Content: test.Text1,
 		Tokens:  tokenDatas,
-		Fields:  ScoringFields{4, 5, 6},
+		Fields:  test.ScoringFields{4, 5, 6},
 	})
 	engine.Flush()
 
 	docIds := makeGseDocIds()
 	outputs := engine.Search(types.SearchReq{
-		Text:   textJP,
+		Text:   test.TextJP,
 		DocIds: docIds,
 	})
 
@@ -647,7 +687,7 @@ func TestSearchGse(t *testing.T) {
 	assert.Equal(t, "世界", outputs.Tokens[1])
 
 	outDocs := outputs.Docs.(types.ScoredDocs)
-	log.Println("outputs docs...", outDocs)
+	log.Info("outputs docs... %v", outDocs)
 	assert.Equal(t, "2", len(outDocs))
 
 	assert.Equal(t, "8", outDocs[0].DocId)
@@ -662,23 +702,23 @@ func TestSearchGse(t *testing.T) {
 }
 
 func TestSearchNotUseGse(t *testing.T) {
-	var engine, engine1 Engine
-	engine.Init(types.EngineOpts{
+
+	engine := New(types.EngineOpts{
 		Using:     4,
 		NotUseGse: true,
 	})
 
-	engine1.Init(types.EngineOpts{
+	engine1 := New(types.EngineOpts{
 		IDOnly:    true,
 		NotUseGse: true,
 	})
 
-	AddDocs(&engine)
-	AddDocs(&engine1)
+	AddDocs(engine)
+	AddDocs(engine1)
 
 	data := types.DocData{
 		Content: "Google Is Experimenting With Virtual Reality Advertising",
-		Fields:  score1,
+		Fields:  test.Score1,
 		Tokens:  []types.TokenData{{Text: "test"}},
 	}
 
@@ -703,7 +743,7 @@ func TestSearchNotUseGse(t *testing.T) {
 	assert.Equal(t, "is", outputs.Tokens[1])
 
 	outDocs := outputs.Docs.(types.ScoredDocs)
-	log.Println("outputs docs...", outDocs)
+	log.Info("outputs docs... %v", outDocs)
 	assert.Equal(t, "2", len(outDocs))
 
 	assert.Equal(t, "8", outDocs[0].DocId)
@@ -724,28 +764,30 @@ func TestSearchWithGse(t *testing.T) {
 	seg := gse.Segmenter{}
 	seg.LoadDict("zh") // ./data/dict/dictionary.txt
 
-	var engine1, engine2, searcher2 Engine
-	searcher2.Init(types.EngineOpts{
+	searcher2 := New(types.EngineOpts{
 		Using: 1,
 	})
 	defer searcher2.Close()
 
-	engine1.WithGse(seg).Init(types.EngineOpts{
-		IndexerOpts: inxOpts,
+	engine1 := New(types.EngineOpts{
+		IndexerOpts: test.InxOpts,
 	})
+	engine1.WithGse(&seg)
+	engine1.Startup()
 
-	engine2.WithGse(seg).Init(types.EngineOpts{
+	engine2 := New(types.EngineOpts{
 		// GseDict: "./data/dict/dictionary.txt",
 		IndexerOpts: &types.IndexerOpts{
 			IndexType: types.DocIdsIndex,
 		},
 	})
+	engine2.WithGse(&seg)
 
-	AddDocsWithLabels(&engine1)
-	AddDocsWithLabels(&engine2)
+	AddDocsWithLabels(engine1)
+	AddDocsWithLabels(engine2)
 
-	outputs1 := engine1.Search(reqG)
-	outputs2 := engine2.Search(reqG)
+	outputs1 := engine1.Search(test.ReqG)
+	outputs2 := engine2.Search(test.ReqG)
 	assert.Equal(t, "1", len(outputs1.Tokens))
 	assert.Equal(t, "1", len(outputs2.Tokens))
 	assert.Equal(t, "google", outputs1.Tokens[0])
@@ -760,22 +802,21 @@ func TestSearchWithGse(t *testing.T) {
 }
 
 func TestRiotGse(t *testing.T) {
-	var engine, engine1 Engine
-	engine.Init(types.EngineOpts{
+	engine := New(types.EngineOpts{
 		Using: 1,
 	})
 
-	AddDocs(&engine)
+	AddDocs(engine)
 
-	engine1.Init(types.EngineOpts{
+	engine1 := New(types.EngineOpts{
 		Using:   1,
 		GseMode: true,
 	})
 
-	AddDocs(&engine1)
-	tt.Equal(t, "[《 复仇者 联盟 3 ： 无限 战争 》 是 全片 使用 imax 摄影机 拍摄]",
+	AddDocs(engine1)
+	assert.Equal(t, "[《 复仇者 联盟 3 ： 无限 战争 》 是 全片 使用 imax 摄影机 拍摄]",
 		engine.Segment("《复仇者联盟3：无限战争》是全片使用IMAX摄影机拍摄"))
-	tt.Equal(t, "[此次 google 收购 将 成 世界 联网 互联网 最大 并购]",
+	assert.Equal(t, "[此次 google 收购 将 成 世界 联网 互联网 最大 并购]",
 		engine1.Segment("此次Google收购将成世界互联网最大并购"))
 
 	engine.Close()
@@ -783,26 +824,25 @@ func TestRiotGse(t *testing.T) {
 }
 
 func TestSearchLogic(t *testing.T) {
-	var engine Engine
-	engine.Init(testJPOpts(0))
+	var engine *Engine = New(testJPOpts(0))
 
-	AddDocs(&engine)
+	AddDocs(engine)
 
 	engine.Index("7", types.DocData{
-		Content: textJP1,
-		Fields:  score1,
+		Content: test.TextJP1,
+		Fields:  test.Score1,
 	})
 
 	tokenDatas := tokenData()
 	engine.Index("8", types.DocData{
-		Content: text1,
+		Content: test.Text1,
 		Tokens:  tokenDatas,
-		Fields:  score1,
+		Fields:  test.Score1,
 	})
 
 	engine.Index("9", types.DocData{
-		Content: text1,
-		Fields:  score1,
+		Content: test.Text1,
+		Fields:  test.Score1,
 	})
 
 	engine.Index("10", types.DocData{
@@ -811,7 +851,7 @@ func TestSearchLogic(t *testing.T) {
 			"世界",
 			[]int{2, 3},
 		}},
-		Fields: score091,
+		Fields: test.Score091,
 	})
 
 	engine.Flush()
@@ -830,7 +870,7 @@ func TestSearchLogic(t *testing.T) {
 	}
 
 	outputs := engine.Search(types.SearchReq{
-		Text:   textJP,
+		Text:   test.TextJP,
 		DocIds: docIds,
 		Logic:  logic,
 	})
@@ -840,7 +880,7 @@ func TestSearchLogic(t *testing.T) {
 	assert.Equal(t, "世界", outputs.Tokens[1])
 
 	outDocs := outputs.Docs.(types.ScoredDocs)
-	log.Println("outputs docs...", outDocs)
+	log.Info("outputs docs...", outDocs)
 	assert.Equal(t, "2", len(outDocs))
 
 	assert.Equal(t, "10", outDocs[0].DocId)

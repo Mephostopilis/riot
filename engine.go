@@ -24,10 +24,8 @@ package riot
 import (
 	"fmt"
 	"log"
-	"os"
 	"runtime"
 	"sort"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -44,22 +42,10 @@ import (
 )
 
 const (
-	// Version get the riot version
-	Version string = "v0.10.0.425, Danube River!"
 
 	// NumNanosecondsInAMillisecond nano-seconds in a milli-second num
 	NumNanosecondsInAMillisecond = 1000000
-	// StoreFilePrefix persistent store file prefix
-	StoreFilePrefix = "riot"
-
-	// DefaultPath default db path
-	DefaultPath = "./riot-index"
 )
-
-// GetVersion get the riot version
-func GetVersion() string {
-	return Version
-}
 
 // Engine initialize the engine
 type Engine struct {
@@ -77,12 +63,12 @@ type Engine struct {
 	numDocsStored        uint64
 
 	// 记录初始化参数
-	initOptions types.EngineOpts
-	initialized bool
+	initOptions *types.EngineOpts
 
+	// 所有
 	indexers   []*core.Indexer
 	rankers    []*core.Ranker
-	segmenter  gse.Segmenter
+	segmenter  *gse.Segmenter
 	loaded     bool
 	stopTokens StopTokens
 	dbs        []store.Store
@@ -103,225 +89,69 @@ type Engine struct {
 	storeInitChan      chan bool
 }
 
-// Indexer initialize the indexer channel
-func (engine *Engine) Indexer(options types.EngineOpts) {
-	engine.indexerAddDocChans = make([]chan indexerAddDocReq, options.NumShards)
-	engine.indexerRemoveDocChans = make([]chan indexerRemoveDocReq, options.NumShards)
-	engine.indexerLookupChans = make([]chan indexerLookupReq, options.NumShards)
+func Default() (engine *Engine) {
+	var (
+		storageShards = 10
+		numShards     = 10
+		segmentDict   string
+	)
 
-	for shard := 0; shard < options.NumShards; shard++ {
-		engine.indexerAddDocChans[shard] = make(
-			chan indexerAddDocReq, options.IndexerBufLen)
-
-		engine.indexerRemoveDocChans[shard] = make(
-			chan indexerRemoveDocReq, options.IndexerBufLen)
-
-		engine.indexerLookupChans[shard] = make(
-			chan indexerLookupReq, options.IndexerBufLen)
+	opts := types.EngineOpts{
+		// Using:         using,
+		StoreShards: storageShards,
+		NumShards:   numShards,
+		IndexerOpts: &types.IndexerOpts{
+			IndexType: types.DocIdsIndex,
+		},
+		UseStore: true,
+		// StoreEngine: storageEngine,
+		GseDict: segmentDict,
+		// StopTokenFile: stopTokenFile,
 	}
+	opts.Def()
+	engine = New(&opts)
+
+	return
 }
 
-// Ranker initialize the ranker channel
-func (engine *Engine) Ranker(options types.EngineOpts) {
-	engine.rankerAddDocChans = make(
-		[]chan rankerAddDocReq, options.NumShards)
-
-	engine.rankerRankChans = make(
-		[]chan rankerRankReq, options.NumShards)
-
-	engine.rankerRemoveDocChans = make(
-		[]chan rankerRemoveDocReq, options.NumShards)
-
-	for shard := 0; shard < options.NumShards; shard++ {
-		engine.rankerAddDocChans[shard] = make(
-			chan rankerAddDocReq, options.RankerBufLen)
-
-		engine.rankerRankChans[shard] = make(
-			chan rankerRankReq, options.RankerBufLen)
-
-		engine.rankerRemoveDocChans[shard] = make(
-			chan rankerRemoveDocReq, options.RankerBufLen)
-	}
-}
-
-// InitStore initialize the persistent store channel
-func (engine *Engine) InitStore() {
-	engine.storeIndexDocChans = make(
-		[]chan storeIndexDocReq, engine.initOptions.StoreShards)
-
-	for shard := 0; shard < engine.initOptions.StoreShards; shard++ {
-		engine.storeIndexDocChans[shard] = make(
-			chan storeIndexDocReq)
-	}
-	engine.storeInitChan = make(
-		chan bool, engine.initOptions.StoreShards)
-}
-
-// CheckMem check the memory when the memory is larger
-// than 99.99% using the store
-func (engine *Engine) CheckMem() {
-	// Todo test
-	if !engine.initOptions.UseStore {
-		log.Println("Check virtualMemory...")
-
-		vmem, _ := mem.VirtualMemory()
-		log.Printf("Total: %v, Free: %v, UsedPercent: %f%%\n",
-			vmem.Total, vmem.Free, vmem.UsedPercent)
-
-		useMem := fmt.Sprintf("%.2f", vmem.UsedPercent)
-		if useMem == "99.99" {
-			engine.initOptions.UseStore = true
-			engine.initOptions.StoreFolder = DefaultPath
-			// os.MkdirAll(DefaultPath, 0777)
-		}
-	}
-}
-
-// Store start the persistent store work connection
-func (engine *Engine) Store() {
-	// if engine.initOptions.UseStore {
-	err := os.MkdirAll(engine.initOptions.StoreFolder, 0700)
-	if err != nil {
-		log.Fatalf("Can not create directory: %s ; %v",
-			engine.initOptions.StoreFolder, err)
-	}
-
-	// 打开或者创建数据库
-	engine.dbs = make([]store.Store, engine.initOptions.StoreShards)
-	for shard := 0; shard < engine.initOptions.StoreShards; shard++ {
-		dbPath := engine.initOptions.StoreFolder + "/" +
-			StoreFilePrefix + "." + strconv.Itoa(shard)
-
-		db, err := store.OpenStore(dbPath, engine.initOptions.StoreEngine)
-		if db == nil || err != nil {
-			log.Fatal("Unable to open database ", dbPath, ": ", err)
-		}
-		engine.dbs[shard] = db
-	}
-
-	// 从数据库中恢复
-	for shard := 0; shard < engine.initOptions.StoreShards; shard++ {
-		go engine.storeInit(shard)
-	}
-
-	// 等待恢复完成
-	for shard := 0; shard < engine.initOptions.StoreShards; shard++ {
-		<-engine.storeInitChan
-	}
-
-	for {
-		runtime.Gosched()
-
-		inx := atomic.LoadUint64(&engine.numDocsIndexed)
-		numDoced := engine.numIndexingReqs == inx
-
-		if numDoced {
-			break
-		}
-
-	}
-
-	// 关闭并重新打开数据库
-	for shard := 0; shard < engine.initOptions.StoreShards; shard++ {
-		engine.dbs[shard].Close()
-		dbPath := engine.initOptions.StoreFolder + "/" +
-			StoreFilePrefix + "." + strconv.Itoa(shard)
-
-		db, err := store.OpenStore(dbPath, engine.initOptions.StoreEngine)
-		if db == nil || err != nil {
-			log.Fatal("Unable to open database ", dbPath, ": ", err)
-		}
-		engine.dbs[shard] = db
-	}
-
-	for shard := 0; shard < engine.initOptions.StoreShards; shard++ {
-		go engine.storeIndexDoc(shard)
-	}
-	// }
-}
-
-// WithGse Using user defined segmenter
-// If using a not nil segmenter and the dictionary is loaded,
-// the `opt.GseDict` will be ignore.
-func (engine *Engine) WithGse(segmenter gse.Segmenter) *Engine {
-	if engine.initialized {
-		log.Fatal(`Do not re-initialize the engine, 
-			WithGse should call before initialize the engine.`)
-	}
-
-	engine.segmenter = segmenter
-	engine.loaded = true
-	return engine
-}
-
-func (engine *Engine) initDef(options types.EngineOpts) types.EngineOpts {
-	if options.GseDict == "" && !options.NotUseGse && !engine.loaded {
-		log.Printf("Dictionary file path is empty, load the default dictionary file.")
-		options.GseDict = "zh"
-	}
-
-	if options.UseStore == true && options.StoreFolder == "" {
-		log.Printf("Store file path is empty, use default folder path.")
-		options.StoreFolder = DefaultPath
-		// os.MkdirAll(DefaultPath, 0777)
-	}
-
-	return options
-}
-
-// Init initialize the engine
-func (engine *Engine) Init(options types.EngineOpts) {
+// New initialize the engine
+func New(options types.EngineOpts) (engine *Engine) {
 	// 将线程数设置为CPU数
 	// runtime.GOMAXPROCS(runtime.NumCPU())
 	// runtime.GOMAXPROCS(128)
 
-	// 初始化初始参数
-	if engine.initialized {
-		log.Fatal("Do not re-initialize the engine.")
-	}
-	options = engine.initDef(options)
-
 	options.Init()
+	options.Def()
 	engine.initOptions = options
-	engine.initialized = true
 
-	if !options.NotUseGse {
-		if !engine.loaded {
-			// 载入分词器词典
-			engine.segmenter.LoadDict(options.GseDict)
-			engine.loaded = true
-		}
-
-		// 初始化停用词
-		engine.stopTokens.Init(options.StopTokenFile)
-	}
-
-	// 初始化索引器和排序器
-	for shard := 0; shard < options.NumShards; shard++ {
-		indexer, _ := core.NewIndexer(*options.IndexerOpts)
-		engine.indexers[shard] = indexer
-
-		ranker, _ := core.NewRanker(options.IDOnly)
-		engine.rankers[shard] = ranker
-	}
-
-	// 初始化分词器通道
-	engine.segmenterChan = make(chan segmenterReq, options.NumGseThreads)
+	// 初始化分词器
+	engine.initSegment(options)
 
 	// 初始化索引器通道
-	engine.Indexer(options)
+	engine.initIndexer(options)
 
 	// 初始化排序器通道
-	engine.Ranker(options)
+	engine.initRanker(options)
 
-	// engine.CheckMem(engine.initOptions.UseStore)
 	engine.CheckMem()
 
 	// 初始化持久化存储通道
-	if engine.initOptions.UseStore {
-		engine.InitStore()
+	if options.UseStore {
+		engine.initStore(options)
 	}
 
+	atomic.AddUint64(&engine.numDocsStored, engine.numIndexingReqs)
+
+	return
+}
+
+func (engine *Engine) WithGse(seg *gse.Segmenter) {
+	engine.segmenter = seg
+	engine.loaded = true
+}
+
+func (engine *Engine) Startup() {
+	options := engine.initOptions
 	// 启动分词器
 	for iThread := 0; iThread < options.NumGseThreads; iThread++ {
 		go engine.segmenterWorker()
@@ -343,11 +173,28 @@ func (engine *Engine) Init(options types.EngineOpts) {
 	}
 
 	// 启动持久化存储工作协程
-	if engine.initOptions.UseStore {
-		engine.Store()
+	if options.UseStore {
+		engine.startStore()
 	}
+}
 
-	atomic.AddUint64(&engine.numDocsStored, engine.numIndexingReqs)
+// CheckMem check the memory when the memory is larger
+// than 99.99% using the store
+func (engine *Engine) CheckMem() {
+	// Todo test
+	if !engine.initOptions.UseStore {
+		log.Println("Check virtualMemory...")
+
+		vmem, _ := mem.VirtualMemory()
+		log.Printf("Total: %v, Free: %v, UsedPercent: %f%%\n", vmem.Total, vmem.Free, vmem.UsedPercent)
+
+		useMem := fmt.Sprintf("%.2f", vmem.UsedPercent)
+		if useMem == "99.99" {
+			engine.initOptions.UseStore = true
+			// engine.initOptions.StoreFolder = DefaultPath
+			// os.MkdirAll(DefaultPath, 0777)
+		}
+	}
 }
 
 // IndexDoc add the document to the index
@@ -367,8 +214,7 @@ func (engine *Engine) IndexDoc(docId string, data types.DocData, forceUpdate ...
 }
 
 // Index add the document to the index
-func (engine *Engine) Index(docId string, data types.DocData,
-	forceUpdate ...bool) {
+func (engine *Engine) Index(docId string, data types.DocData, forceUpdate ...bool) {
 
 	var force bool
 	if len(forceUpdate) > 0 {
@@ -391,10 +237,6 @@ func (engine *Engine) Index(docId string, data types.DocData,
 }
 
 func (engine *Engine) internalIndexDoc(docId string, data types.DocData, forceUpdate bool) {
-
-	if !engine.initialized {
-		log.Fatal("The engine must be initialized first.")
-	}
 
 	if docId != "0" {
 		atomic.AddUint64(&engine.numIndexingReqs, 1)
@@ -423,10 +265,6 @@ func (engine *Engine) RemoveDoc(docId string, forceUpdate ...bool) {
 	var force bool
 	if len(forceUpdate) > 0 {
 		force = forceUpdate[0]
-	}
-
-	if !engine.initialized {
-		log.Fatal("The engine must be initialized first.")
 	}
 
 	if docId != "0" {
@@ -725,78 +563,6 @@ func (engine *Engine) Ranks(request types.SearchReq, rankOpts types.RankOpts,
 	output.NumDocs = numDocs
 	output.Timeout = isTimeout
 
-	return
-}
-
-// SearchDoc find the document that satisfies the search criteria.
-// This function is thread safe, return not IDonly
-func (engine *Engine) SearchDoc(request types.SearchReq) (output types.SearchDoc) {
-	resp := engine.Search(request)
-	return types.SearchDoc{
-		BaseResp: resp.BaseResp,
-		Docs:     resp.Docs.(types.ScoredDocs),
-	}
-}
-
-// SearchID find the document that satisfies the search criteria.
-// This function is thread safe, return IDonly
-func (engine *Engine) SearchID(request types.SearchReq) (output types.SearchID) {
-	// return types.SearchID(engine.Search(request))
-	resp := engine.Search(request)
-	return types.SearchID{
-		BaseResp: resp.BaseResp,
-		Docs:     resp.Docs.(types.ScoredIDs),
-	}
-}
-
-// Search find the document that satisfies the search criteria.
-// This function is thread safe
-// 查找满足搜索条件的文档，此函数线程安全
-func (engine *Engine) Search(request types.SearchReq) (output types.SearchResp) {
-	if !engine.initialized {
-		log.Fatal("The engine must be initialized first.")
-	}
-
-	tokens := engine.Tokens(request)
-
-	var rankOpts types.RankOpts
-	if request.RankOpts == nil {
-		rankOpts = *engine.initOptions.DefRankOpts
-	} else {
-		rankOpts = *request.RankOpts
-	}
-
-	if rankOpts.ScoringCriteria == nil {
-		rankOpts.ScoringCriteria = engine.initOptions.DefRankOpts.ScoringCriteria
-	}
-
-	// 建立排序器返回的通信通道
-	rankerReturnChan := make(
-		chan rankerReturnReq, engine.initOptions.NumShards)
-
-	// 生成查找请求
-	lookupRequest := indexerLookupReq{
-		countDocsOnly:    request.CountDocsOnly,
-		tokens:           tokens,
-		labels:           request.Labels,
-		docIds:           request.DocIds,
-		options:          rankOpts,
-		rankerReturnChan: rankerReturnChan,
-		orderless:        request.Orderless,
-		logic:            request.Logic,
-	}
-
-	// 向索引器发送查找请求
-	for shard := 0; shard < engine.initOptions.NumShards; shard++ {
-		engine.indexerLookupChans[shard] <- lookupRequest
-	}
-
-	if engine.initOptions.IDOnly {
-		output = engine.RankID(request, rankOpts, tokens, rankerReturnChan)
-		return
-	}
-
-	output = engine.Ranks(request, rankOpts, tokens, rankerReturnChan)
 	return
 }
 

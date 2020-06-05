@@ -3,19 +3,19 @@ package riot
 import (
 	"encoding/gob"
 	"fmt"
-	"log"
 	"os"
 	"testing"
 
+	"github.com/go-ego/riot/test"
 	"github.com/go-ego/riot/types"
-	"github.com/magiconair/properties/assert"
-	"github.com/vcaesar/tt"
+	"github.com/go-kratos/kratos/pkg/log"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestEngineIndexWithNewStore(t *testing.T) {
-	gob.Register(ScoringFields{})
-	var engine = New("./testdata/test_dict.txt", "./riot.new", 8)
-	log.Println("new engine start...")
+	gob.Register(test.ScoringFields{})
+	var engine = New({"./testdata/test_dict.txt", "./riot.new", 8})
+	log.Info("new engine start...")
 	// engine = engine.New()
 	AddDocs(engine)
 
@@ -54,7 +54,7 @@ func TestEngineIndexWithNewStore(t *testing.T) {
 }
 
 var (
-	rankTestOpts = rankOptsMax(0, 1)
+	rankTestOpts = test.RankOptsMax(0, 1)
 )
 
 func testRankOpt(idOnly bool) types.EngineOpts {
@@ -199,9 +199,9 @@ func TestDocGetAllDocAndID(t *testing.T) {
 	assert.Equal(t, "false", has)
 
 	has = engine.HasDoc("2")
-	tt.Equal(t, true, has)
+	assert.Equal(t, true, has)
 	has = engine.HasDoc("3")
-	tt.Equal(t, true, has)
+	assert.Equal(t, true, has)
 	has = engine.HasDoc("4")
 	assert.Equal(t, "true", has)
 
@@ -209,9 +209,9 @@ func TestDocGetAllDocAndID(t *testing.T) {
 	assert.Equal(t, "false", dbhas)
 
 	dbhas = engine.HasDocDB("2")
-	tt.Equal(t, true, dbhas)
+	assert.Equal(t, true, dbhas)
 	dbhas = engine.HasDocDB("3")
-	tt.Equal(t, true, dbhas)
+	assert.Equal(t, true, dbhas)
 	dbhas = engine.HasDocDB("4")
 	assert.Equal(t, "true", dbhas)
 
@@ -235,13 +235,13 @@ func TestDocGetAllDocAndID(t *testing.T) {
 	os.RemoveAll("riot.id")
 }
 
-func testOpts(use int, store string, args ...bool) types.EngineOpts {
+func testOpts(use int, store string, args ...bool) *types.EngineOpts {
 	var pinyin bool
 	if len(args) > 0 {
 		pinyin = args[0]
 	}
 
-	return types.EngineOpts{
+	return &types.EngineOpts{
 		// Using:      1,
 		Using:       use,
 		UseStore:    true,
@@ -253,9 +253,9 @@ func testOpts(use int, store string, args ...bool) types.EngineOpts {
 }
 
 func TestDocPinYin(t *testing.T) {
-	var engine, pinyinOpt Engine
-	engine.Init(testOpts(0, "riot.py"))
-	pinyinOpt.Init(testOpts(0, "riot.py.opt", true))
+
+	engine := New(testOpts(0, "riot.py"))
+	pinyinOpt := New(testOpts(0, "riot.py.opt", true))
 
 	// AddDocs(&engine)
 	// engine.RemoveDoc(5)
@@ -320,7 +320,7 @@ func TestDocPinYin(t *testing.T) {
 
 func TestForSplitData(t *testing.T) {
 	var engine Engine
-	engine.Init(testOpts(4, "riot.data"))
+	engine := New(testOpts(4, "riot.data"))
 
 	AddDocs(&engine)
 
@@ -358,11 +358,12 @@ func testNum(t *testing.T, numAdd, numInx, numRm uint64) {
 	assert.Equal(t, "6", numInx)
 	assert.Equal(t, "8", numRm)
 }
-func TestDocCounters(t *testing.T) {
-	var engine Engine
-	engine.Init(testOpts(1, "riot.doc"))
 
-	AddDocs(&engine)
+func TestDocCounters(t *testing.T) {
+
+	engine := New(&testOpts(1, "riot.doc"))
+
+	AddDocs(engine)
 	engine.RemoveDoc("5")
 	engine.Flush()
 

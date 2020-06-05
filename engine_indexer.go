@@ -18,6 +18,7 @@ package riot
 import (
 	"sync/atomic"
 
+	"github.com/go-ego/riot/core"
 	"github.com/go-ego/riot/types"
 )
 
@@ -41,6 +42,31 @@ type indexerLookupReq struct {
 type indexerRemoveDocReq struct {
 	docId       string
 	forceUpdate bool
+}
+
+// Indexer initialize the indexer channel
+func (engine *Engine) initIndexer(options *types.EngineOpts) {
+
+	// 初始化索引器
+	for shard := 0; shard < options.NumShards; shard++ {
+		indexer, _ := core.NewIndexer(*options.IndexerOpts)
+		engine.indexers[shard] = indexer
+	}
+
+	engine.indexerAddDocChans = make([]chan indexerAddDocReq, options.NumShards)
+	engine.indexerRemoveDocChans = make([]chan indexerRemoveDocReq, options.NumShards)
+	engine.indexerLookupChans = make([]chan indexerLookupReq, options.NumShards)
+
+	for shard := 0; shard < options.NumShards; shard++ {
+		engine.indexerAddDocChans[shard] = make(
+			chan indexerAddDocReq, options.IndexerBufLen)
+
+		engine.indexerRemoveDocChans[shard] = make(
+			chan indexerRemoveDocReq, options.IndexerBufLen)
+
+		engine.indexerLookupChans[shard] = make(
+			chan indexerLookupReq, options.IndexerBufLen)
+	}
 }
 
 func (engine *Engine) indexerAddDoc(shard int) {

@@ -36,7 +36,7 @@ func TestAddKeywords(t *testing.T) {
 	indexer.AddDocToCache(nil, true)
 
 	assert.Equal(t, "", indicesToString(indexer, "token1"))
-	assert.Equal(t, "1 2", indicesToString(indexer, "token2"))
+	assert.Equal(t, "1 2 ", indicesToString(indexer, "token2"))
 	assert.Equal(t, "3 ", indicesToString(indexer, "token3"))
 	assert.Equal(t, "7 ", indicesToString(indexer, "token77"))
 }

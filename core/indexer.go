@@ -71,7 +71,7 @@ type Indexer struct {
 	docTokenLens map[string]float32
 }
 
-// Init 初始化索引器
+// NewIndexer 初始化索引器
 func NewIndexer(options types.IndexerOpts) (indexer *Indexer, err error) {
 	indexer = new(Indexer)
 
@@ -80,8 +80,8 @@ func NewIndexer(options types.IndexerOpts) (indexer *Indexer, err error) {
 
 	indexer.tableLock.table = make(map[string]*KeywordIndices)
 	indexer.tableLock.docsState = make(map[string]int)
-	indexer.addCacheLock.addCache = make([]*types.DocIndex, options.DocCacheSize)
 
+	indexer.addCacheLock.addCache = make([]*types.DocIndex, options.DocCacheSize)
 	indexer.removeCacheLock.removeCache = make([]string, options.DocCacheSize*2)
 	indexer.docTokenLens = make(map[string]float32)
 	return

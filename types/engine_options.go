@@ -16,7 +16,19 @@
 package types
 
 import (
+	"log"
 	"runtime"
+)
+
+const (
+
+	// NumNanosecondsInAMillisecond nano-seconds in a milli-second num
+	NumNanosecondsInAMillisecond = 1000000
+	// StoreFilePrefix persistent store file prefix
+	StoreFilePrefix = "riot"
+
+	// DefaultPath default db path
+	DefaultPath = "./riot-index"
 )
 
 var (
@@ -98,9 +110,10 @@ type EngineOpts struct {
 	StoreOnly bool `toml:"store_only"`
 	UseStore  bool `toml:"use_store"`
 
-	StoreFolder string `toml:"store_folder"`
-	StoreShards int    `toml:"store_shards"`
-	StoreEngine string `toml:"store_engine"`
+	StoreFolder     string `toml:"store_folder"`
+	StoreShards     int    `toml:"store_shards"`
+	StoreEngine     string `toml:"store_engine"`
+	StoreFilePrefix string `toml:"riot_"`
 
 	IDOnly bool `toml:"id_only"`
 }
@@ -155,5 +168,17 @@ func (options *EngineOpts) Init() {
 
 	if options.StoreShards == 0 {
 		options.StoreShards = defaultStoreShards
+	}
+}
+
+func (options *EngineOpts) Def() {
+	if options.GseDict == "" && !options.NotUseGse {
+		options.GseDict = "zh"
+	}
+
+	if options.UseStore == true && options.StoreFolder == "" {
+		log.Printf("Store file path is empty, use default folder path.")
+		options.StoreFolder = DefaultPath
+		// os.MkdirAll(DefaultPath, 0777)
 	}
 }

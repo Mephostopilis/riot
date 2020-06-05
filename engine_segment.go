@@ -16,11 +16,10 @@
 package riot
 
 import (
-	// "fmt"
-
 	"strings"
 
 	"github.com/go-ego/gpy"
+	"github.com/go-ego/gse"
 	"github.com/go-ego/riot/types"
 )
 
@@ -33,6 +32,22 @@ type segmenterReq struct {
 	data  types.DocData
 	// data        types.DocumentIndexData
 	forceUpdate bool
+}
+
+func (engine *Engine) initSegment(options *types.EngineOpts) {
+	engine.segmenter = gse.Segmenter{}
+
+	if !engine.loaded {
+		// 载入分词器词典
+		engine.segmenter.LoadDict(options.GseDict)
+		engine.loaded = true
+	}
+
+	// 初始化停用词
+	engine.stopTokens.Init(options.StopTokenFile)
+
+	// 初始化分词器通道
+	engine.segmenterChan = make(chan segmenterReq, options.NumGseThreads)
 }
 
 // ForSplitData for split segment's data, segspl
