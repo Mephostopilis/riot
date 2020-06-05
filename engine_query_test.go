@@ -8,15 +8,20 @@ import (
 
 	"github.com/go-ego/riot/test"
 	"github.com/go-ego/riot/types"
+	"github.com/go-kratos/kratos/pkg/conf/paladin"
 	"github.com/go-kratos/kratos/pkg/log"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestEngineIndexWithNewStore(t *testing.T) {
 	gob.Register(test.ScoringFields{})
-	var engine = New({"./testdata/test_dict.txt", "./riot.new", 8})
+	engine := New(
+		types.EngineOpts{
+			GseDict:     "./data/dict/dictionary.txttestdata/test_dict.txt",
+			StoreFolder: "./riot.new",
+			NumShards:   8})
 	log.Info("new engine start...")
-	// engine = engine.New()
+
 	AddDocs(engine)
 
 	engine.RemoveDoc("5", true)
@@ -25,14 +30,23 @@ func TestEngineIndexWithNewStore(t *testing.T) {
 	engine.Close()
 	// os.RemoveAll("riot.new")
 
-	// var engine1 = New("./testdata/test_dict.txt", "./riot.new")
-	var engine1 = New("./testdata/test_new.toml")
-	// engine1 = engine1.New()
-	log.Println("test...")
-	engine1.Flush()
-	log.Println("new engine1 start...")
+	var (
+		engineOpts types.EngineOpts
+		ct         paladin.TOML
+	)
+	if err := paladin.Get("riot.toml").Unmarshal(&ct); err != nil {
+		return
+	}
+	if err := ct.Get("Engine").UnmarshalTOML(&engineOpts); err != nil {
+		return
+	}
 
-	outputs := engine1.Search(types.SearchReq{Text: reqText})
+	var engine1 = New(engineOpts)
+	log.Info("test...")
+	engine1.Flush()
+	log.Info("new engine1 start...")
+
+	outputs := engine1.Search(types.SearchReq{Text: test.ReqText})
 	assert.Equal(t, "2", len(outputs.Tokens))
 	assert.Equal(t, "world", outputs.Tokens[0])
 	assert.Equal(t, "人口", outputs.Tokens[1])
@@ -63,14 +77,14 @@ func testRankOpt(idOnly bool) types.EngineOpts {
 		IDOnly:      idOnly,
 		GseDict:     "./testdata/test_dict.txt",
 		DefRankOpts: &rankTestOpts,
-		IndexerOpts: inxOpts,
+		IndexerOpts: test.InxOpts,
 	}
 }
 
 func lookupReq(engine *Engine) (types.SearchReq, []string, chan rankerReturnReq) {
 	request := types.SearchReq{
-		Text:   reqText,
-		DocIds: makeDocIds(),
+		Text:   test.ReqText,
+		DocIds: test.MakeDocIds(),
 	}
 
 	tokens := engine.Tokens(request)
@@ -99,15 +113,14 @@ func lookupReq(engine *Engine) (types.SearchReq, []string, chan rankerReturnReq)
 }
 
 func TestDocRankID(t *testing.T) {
-	var engine Engine
 
-	engine.Init(testRankOpt(true))
-	AddDocs(&engine)
+	engine := New(testRankOpt(true))
+	AddDocs(engine)
 
 	engine.RemoveDoc("5")
 	engine.Flush()
 
-	request, tokens, rankerReturnChan := lookupReq(&engine)
+	request, tokens, rankerReturnChan := lookupReq(engine)
 	outputs := engine.RankID(request, rankTestOpts, tokens, rankerReturnChan)
 
 	if outputs.Docs != nil {
@@ -121,15 +134,14 @@ func TestDocRankID(t *testing.T) {
 }
 
 func TestDocRanks(t *testing.T) {
-	var engine Engine
 
-	engine.Init(testRankOpt(false))
-	AddDocs(&engine)
+	engine := New(testRankOpt(false))
+	AddDocs(engine)
 
 	engine.RemoveDoc("5")
 	engine.Flush()
 
-	request, tokens, rankerReturnChan := lookupReq(&engine)
+	request, tokens, rankerReturnChan := lookupReq(engine)
 	outputs := engine.Ranks(request, rankTestOpts, tokens, rankerReturnChan)
 
 	if outputs.Docs != nil {
@@ -141,9 +153,9 @@ func TestDocRanks(t *testing.T) {
 
 	// test search
 	outputs1 := engine.Search(types.SearchReq{
-		Text:    reqText,
+		Text:    test.ReqText,
 		Timeout: 1000,
-		DocIds:  makeDocIds()})
+		DocIds:  test.MakeDocIds()})
 
 	if outputs1.Docs != nil {
 		outDocs1 := outputs.Docs.(types.ScoredDocs)
@@ -156,9 +168,8 @@ func TestDocRanks(t *testing.T) {
 }
 
 func TestDocGetAllDocAndID(t *testing.T) {
-	gob.Register(ScoringFields{})
+	gob.Register(test.ScoringFields{})
 
-	var engine Engine
 	opts := types.EngineOpts{
 		Using:     1,
 		NumShards: 5,
@@ -168,11 +179,12 @@ func TestDocGetAllDocAndID(t *testing.T) {
 		IDOnly:      true,
 		GseDict:     "./testdata/test_dict.txt",
 		DefRankOpts: &rankTestOpts,
-		IndexerOpts: inxOpts,
+		IndexerOpts: test.InxOpts,
 	}
-	engine.Init(opts)
+	engine := New(opts)
+	engine.Startup()
 
-	AddDocs(&engine)
+	AddDocs(engine)
 
 	engine.RemoveDoc("5")
 	engine.Flush()
@@ -220,7 +232,7 @@ func TestDocGetAllDocAndID(t *testing.T) {
 	docIds["1"] = true
 
 	outputs := engine.Search(types.SearchReq{
-		Text:   reqText,
+		Text:   test.ReqText,
 		DocIds: docIds})
 
 	if outputs.Docs != nil {
@@ -235,13 +247,13 @@ func TestDocGetAllDocAndID(t *testing.T) {
 	os.RemoveAll("riot.id")
 }
 
-func testOpts(use int, store string, args ...bool) *types.EngineOpts {
+func testOpts(use int, store string, args ...bool) types.EngineOpts {
 	var pinyin bool
 	if len(args) > 0 {
 		pinyin = args[0]
 	}
 
-	return &types.EngineOpts{
+	return types.EngineOpts{
 		// Using:      1,
 		Using:       use,
 		UseStore:    true,
@@ -257,10 +269,7 @@ func TestDocPinYin(t *testing.T) {
 	engine := New(testOpts(0, "riot.py"))
 	pinyinOpt := New(testOpts(0, "riot.py.opt", true))
 
-	// AddDocs(&engine)
-	// engine.RemoveDoc(5)
-
-	tokens := engine.PinYin(text2)
+	tokens := engine.PinYin(test.Text2)
 	fmt.Println("tokens...", tokens)
 	assert.Equal(t, "52", len(tokens))
 
@@ -272,13 +281,13 @@ func TestDocPinYin(t *testing.T) {
 	}
 
 	index1 := types.DocData{Tokens: tokenDatas, Fields: "在路上"}
-	index2 := types.DocData{Content: text2, Tokens: tokenDatas}
+	index2 := types.DocData{Content: test.Text2, Tokens: tokenDatas}
 
 	engine.Index("10", index1)
 	engine.Index("11", index2)
 	engine.Flush()
 
-	data := types.DocData{Content: text2}
+	data := types.DocData{Content: test.Text2}
 	pinyinOpt.Index("10", data)
 	pinyinOpt.Index("11", data)
 	pinyinOpt.Flush()
@@ -319,15 +328,16 @@ func TestDocPinYin(t *testing.T) {
 }
 
 func TestForSplitData(t *testing.T) {
-	var engine Engine
-	engine := New(testOpts(4, "riot.data"))
 
-	AddDocs(&engine)
+	engine := New(testOpts(4, "riot.data"))
+	engine.Startup()
+
+	AddDocs(engine)
 
 	engine.RemoveDoc("5")
 	engine.Flush()
 
-	tokenDatas := engine.PinYin(text2)
+	tokenDatas := engine.PinYin(test.Text2)
 	tokens, num := engine.ForSplitData(tokenDatas, 52)
 	assert.Equal(t, "93", len(tokens))
 	assert.Equal(t, "104", num)
@@ -339,7 +349,7 @@ func TestForSplitData(t *testing.T) {
 	docIds["5"] = true
 	docIds["1"] = true
 	outputs := engine.Search(types.SearchReq{
-		Text:   reqText,
+		Text:   test.ReqText,
 		DocIds: docIds})
 
 	if outputs.Docs != nil {
@@ -361,7 +371,7 @@ func testNum(t *testing.T, numAdd, numInx, numRm uint64) {
 
 func TestDocCounters(t *testing.T) {
 
-	engine := New(&testOpts(1, "riot.doc"))
+	engine := New(testOpts(1, "riot.doc"))
 
 	AddDocs(engine)
 	engine.RemoveDoc("5")
@@ -382,7 +392,7 @@ func TestDocCounters(t *testing.T) {
 	docIds["1"] = true
 
 	outputs := engine.Search(types.SearchReq{
-		Text:   reqText,
+		Text:   test.ReqText,
 		DocIds: docIds})
 
 	if outputs.Docs != nil {

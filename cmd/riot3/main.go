@@ -28,11 +28,12 @@ var (
 
 func main() {
 	// Init searcher
-	searcher.Init(types.EngineOpts{
+	searcher := riot.New(types.EngineOpts{
 		NotUseGse: true,
 		// Using:     4,
 		// GseDict: "./dict/dictionary.txt",
 	})
+	searcher.Startup()
 	defer searcher.Close()
 
 	text := "Google Is Experimenting With Virtual Reality Advertising"

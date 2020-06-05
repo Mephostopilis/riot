@@ -1,20 +1,25 @@
-# []
-url = ["http://localhost:8080", "http://localhost:8081"]
-# port = ""
 
 # [db]
 # store_folder= "./riot-index"
 # relation = "./relations"
 
-[engine]
+[Engine]
 mode = "dev"
+useGse = true
 using = 3
 store_shards = 10
 num_shards = 10
-# gse_dict = "./data/dict/dictionary.txt"
+gse_dict = "./testdata/test_dict.txt"
+pinyin = true
+
+
 # stop_token_file = "./data/dict/stop_tokens.txt"
+
+
 
 # [search]
 output_offset = 0
 max_outputs = 100
+
+idOnly = true
 

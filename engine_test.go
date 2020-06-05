@@ -57,7 +57,7 @@ func AddDocsWithLabels(engine *Engine) {
 		Content: "《复仇者联盟3：无限战争》是全片使用IMAX摄影机拍摄",
 		Labels:  []string{"复仇者", "战争"},
 	})
-	log.Println("engine.Segment(): ",
+	log.Info("engine.Segment(): ",
 		engine.Segment("《复仇者联盟3：无限战争》是全片使用IMAX摄影机拍摄"))
 
 	// docId++
@@ -112,7 +112,7 @@ func TestTry(t *testing.T) {
 
 func TestEngineIndexDoc(t *testing.T) {
 
-	engine := New(&test.TestIndexOpts)
+	engine := New(test.TestIndexOpts)
 	engine.Startup()
 
 	AddDocs(engine)
@@ -142,7 +142,7 @@ func TestEngineIndexDoc(t *testing.T) {
 }
 
 func TestReverseOrder(t *testing.T) {
-	engine := New(&test.OrderOpts)
+	engine := New(test.OrderOpts)
 	engine.Startup()
 
 	AddDocs(engine)
@@ -160,7 +160,7 @@ func TestReverseOrder(t *testing.T) {
 }
 
 func TestOffsetAndMaxOutputs(t *testing.T) {
-	engine := New(&types.EngineOpts{
+	engine := New(types.EngineOpts{
 		Using:       1,
 		GseDict:     "./testdata/test_dict.txt",
 		DefRankOpts: &test.RankOptsMax3,
@@ -181,7 +181,7 @@ func TestOffsetAndMaxOutputs(t *testing.T) {
 }
 
 func TestSearchWithCriteria(t *testing.T) {
-	engine := New(&test.EngOpts)
+	engine := New(test.EngOpts)
 	engine.Startup()
 
 	AddDocs(engine)
@@ -202,7 +202,7 @@ func TestSearchWithCriteria(t *testing.T) {
 }
 
 func TestCompactIndex(t *testing.T) {
-	engine := New(&useOpts)
+	engine := New(useOpts)
 
 	AddDocs(engine)
 
@@ -296,7 +296,7 @@ func TestRemoveDoc(t *testing.T) {
 }
 
 func TestEngineIndexWithTokens(t *testing.T) {
-	engine := New(&test.TestIndexOpts)
+	engine := New(test.TestIndexOpts)
 
 	data1 := types.TokenData{
 		Text:      "world",
@@ -483,7 +483,7 @@ func TestDocOrderless(t *testing.T) {
 	engine.RemoveDoc("5")
 	engine.Flush()
 
-	orderReq := types.SearchReq{Text: reqText, Orderless: true}
+	orderReq := types.SearchReq{Text: test.ReqText, Orderless: true}
 	outputs := engine.Search(orderReq)
 	// assert.Equal(t, "0", len(outputs.Docs))
 	if outputs.Docs == nil {

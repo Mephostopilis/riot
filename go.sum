@@ -152,6 +152,7 @@ github.com/go-vgo/grpclb v0.0.0-20181128171039-89526b0a742e h1:tWgVtSQeg8f4cVBwH
 github.com/go-vgo/grpclb v0.0.0-20181128171039-89526b0a742e/go.mod h1:RLBU+1pK/TEou3dxzHEhdxhgwuSFTq8UYahALbc6tN4=
 github.com/go-vgo/gt v0.0.0-20191129122048-b43b4ceeec26 h1:r6LQVeALyMwvQv9VEbOiXbYoqQNxDtWfOpbUohptyrw=
 github.com/go-vgo/gt v0.0.0-20191129122048-b43b4ceeec26/go.mod h1:nOd/5lXyOr4ILPGo4nO6iEgKxb8v++eaZPDLb29KooE=
+github.com/go-vgo/gt/conf v0.0.0-20190822172343-e8dae7b097a1 h1:Ymc6Tn+bUqm8e21eEzr8ZRl5IFjlzd2c9FhPEFeGrd0=
 github.com/go-vgo/gt/conf v0.0.0-20190822172343-e8dae7b097a1/go.mod h1:YWt7auzuo/LKrRh82hRFvmoXRSrCjgITXPbpgjM+sMo=
 github.com/go-vgo/gt/conf v0.0.0-20191129122048-b43b4ceeec26 h1:SQtIeXQn3NIEyqldM1dzGN3C/kf8PBsdo79gkTpPD3o=
 github.com/go-vgo/gt/conf v0.0.0-20191129122048-b43b4ceeec26/go.mod h1:Ba0HbzBCvoeeYe9/gkghpwz913uTgJg49+26G6wbV4c=

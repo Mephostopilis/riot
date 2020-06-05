@@ -35,10 +35,10 @@ type segmenterReq struct {
 }
 
 func (engine *Engine) initSegment(options *types.EngineOpts) {
-	engine.segmenter = gse.Segmenter{}
 
 	if !engine.loaded {
 		// 载入分词器词典
+		engine.segmenter = &gse.Segmenter{}
 		engine.segmenter.LoadDict(options.GseDict)
 		engine.loaded = true
 	}

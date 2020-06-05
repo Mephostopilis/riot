@@ -71,10 +71,11 @@ type EngineOpts struct {
 	// 半角逗号 "," 分隔的字典文件，具体用法见
 	// gse.Segmenter.LoadDict 函数的注释
 	GseDict string `toml:"gse_dict"`
-	PinYin  bool   `toml:"pin_yin"`
+	PinYin  bool   `toml:"pinyin"`
 
 	// 停用词文件
 	StopTokenFile string `toml:"stop_file"`
+
 	// Gse search mode
 	GseMode bool   `toml:"gse_mode"`
 	Hmm     bool   `toml:"hmm"`
@@ -115,7 +116,7 @@ type EngineOpts struct {
 	StoreEngine     string `toml:"store_engine"`
 	StoreFilePrefix string `toml:"riot_"`
 
-	IDOnly bool `toml:"id_only"`
+	IDOnly bool `toml:"idOnly"`
 }
 
 // Init init engine options

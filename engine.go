@@ -63,7 +63,7 @@ type Engine struct {
 	numDocsStored        uint64
 
 	// 记录初始化参数
-	initOptions *types.EngineOpts
+	initOptions types.EngineOpts
 
 	// 所有
 	indexers   []*core.Indexer
@@ -109,7 +109,7 @@ func Default() (engine *Engine) {
 		// StopTokenFile: stopTokenFile,
 	}
 	opts.Def()
-	engine = New(&opts)
+	engine = New(opts)
 
 	return
 }
@@ -122,26 +122,26 @@ func New(options types.EngineOpts) (engine *Engine) {
 
 	options.Init()
 	options.Def()
+	engine = new(Engine)
 	engine.initOptions = options
 
 	// 初始化分词器
-	engine.initSegment(options)
+	engine.initSegment(&options)
 
 	// 初始化索引器通道
-	engine.initIndexer(options)
+	engine.initIndexer(&options)
 
 	// 初始化排序器通道
-	engine.initRanker(options)
+	engine.initRanker(&options)
 
 	engine.CheckMem()
 
 	// 初始化持久化存储通道
 	if options.UseStore {
-		engine.initStore(options)
+		engine.initStore(&options)
 	}
 
 	atomic.AddUint64(&engine.numDocsStored, engine.numIndexingReqs)
-
 	return
 }
 
