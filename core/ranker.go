@@ -23,77 +23,46 @@ import (
 	"github.com/go-ego/riot/utils"
 )
 
+type item struct {
+	fields  interface{}
+	docs    bool
+	content string
+	attri   interface{}
+}
+
 // Ranker ranker
 type Ranker struct {
 	lock struct {
 		sync.RWMutex
-
-		fields map[string]interface{}
-		docs   map[string]bool
-		// new
-		content map[string]string
-		attri   map[string]interface{}
+		docs map[string]*item
 	}
-
-	idOnly bool
 }
 
 // Init init ranker
-func NewRanker(onlyID ...bool) (ranker *Ranker, err error) {
+func NewRanker() (ranker *Ranker, err error) {
 	ranker = new(Ranker)
-	if len(onlyID) > 0 {
-		ranker.idOnly = onlyID[0]
-	}
-
-	ranker.lock.fields = make(map[string]interface{})
-	ranker.lock.docs = make(map[string]bool)
-
-	if !ranker.idOnly {
-		// new
-		ranker.lock.content = make(map[string]string)
-		ranker.lock.attri = make(map[string]interface{})
-	}
+	ranker.lock.docs = make(map[string]*item)
 	return
 }
 
 // AddDoc add doc
 // 给某个文档添加评分字段
-func (ranker *Ranker) AddDoc(
-	// docId uint64, fields interface{}, content string, attri interface{}) {
-	docId string, fields interface{}, content ...interface{}) {
-
-	ranker.lock.Lock()
-	ranker.lock.fields[docId] = fields
-	ranker.lock.docs[docId] = true
-
-	if !ranker.idOnly {
-		// new
-		if len(content) > 0 {
-			ranker.lock.content[docId] = content[0].(string)
-		}
-
-		if len(content) > 1 {
-			ranker.lock.attri[docId] = content[1]
-			// ranker.lock.attri[docId] = attri
-		}
+func (ranker *Ranker) AddDoc(docId string, fields interface{}, content ...interface{}) {
+	i := &item{
+		fields:  fields,
+		docs:    true,
+		content: content[0].(string),
+		attri:   content[1],
 	}
-
+	ranker.lock.Lock()
+	ranker.lock.docs[docId] = i
 	ranker.lock.Unlock()
 }
 
 // RemoveDoc 删除某个文档的评分字段
 func (ranker *Ranker) RemoveDoc(docId string) {
-
 	ranker.lock.Lock()
-	delete(ranker.lock.fields, docId)
 	delete(ranker.lock.docs, docId)
-
-	if !ranker.idOnly {
-		// new
-		delete(ranker.lock.content, docId)
-		delete(ranker.lock.attri, docId)
-	}
-
 	ranker.lock.Unlock()
 }
 
@@ -115,8 +84,7 @@ func (ranker *Ranker) rankOutIDs(docs []types.IndexedDoc, options types.RankOpts
 		ranker.lock.RLock()
 		// 判断 doc 是否存在
 		if _, ok := ranker.lock.docs[d.DocId]; ok {
-
-			fs := ranker.lock.fields[d.DocId]
+			fs := ranker.lock.docs[d.DocId].fields
 			ranker.lock.RUnlock()
 
 			// 计算评分并剔除没有分值的文档
@@ -137,7 +105,6 @@ func (ranker *Ranker) rankOutIDs(docs []types.IndexedDoc, options types.RankOpts
 			ranker.lock.RUnlock()
 		}
 	}
-
 	return
 }
 
@@ -145,7 +112,6 @@ func (ranker *Ranker) rankOutIDs(docs []types.IndexedDoc, options types.RankOpts
 func (ranker *Ranker) RankDocID(docs []types.IndexedDoc, options types.RankOpts, countDocsOnly bool) (types.ScoredIDs, int) {
 
 	outputDocs, numDocs := ranker.rankOutIDs(docs, options, countDocsOnly)
-
 	// 排序
 	if !countDocsOnly {
 		if options.ReverseOrder {
@@ -163,16 +129,14 @@ func (ranker *Ranker) RankDocID(docs []types.IndexedDoc, options types.RankOpts,
 	return outputDocs, numDocs
 }
 
-func (ranker *Ranker) rankOutDocs(docs []types.IndexedDoc, options types.RankOpts,
-	countDocsOnly bool) (outputDocs types.ScoredDocs, numDocs int) {
+func (ranker *Ranker) rankOutDocs(docs []types.IndexedDoc, options types.RankOpts, countDocsOnly bool) (outputDocs types.ScoredDocs, numDocs int) {
 	for _, d := range docs {
 		ranker.lock.RLock()
 		// 判断 doc 是否存在
 		if _, ok := ranker.lock.docs[d.DocId]; ok {
-
-			fs := ranker.lock.fields[d.DocId]
-			content := ranker.lock.content[d.DocId]
-			attri := ranker.lock.attri[d.DocId]
+			fs := ranker.lock.docs[d.DocId].fields
+			content := ranker.lock.docs[d.DocId].content
+			attri := ranker.lock.docs[d.DocId].attri
 			ranker.lock.RUnlock()
 
 			// 计算评分并剔除没有分值的文档
@@ -201,16 +165,13 @@ func (ranker *Ranker) rankOutDocs(docs []types.IndexedDoc, options types.RankOpt
 			ranker.lock.RUnlock()
 		}
 	}
-
 	return
 }
 
 // RankDocs rank docs by types.ScoredDocs
-func (ranker *Ranker) RankDocs(docs []types.IndexedDoc,
-	options types.RankOpts, countDocsOnly bool) (types.ScoredDocs, int) {
+func (ranker *Ranker) RankDocs(docs []types.IndexedDoc, options types.RankOpts, countDocsOnly bool) (types.ScoredDocs, int) {
 
 	outputDocs, numDocs := ranker.rankOutDocs(docs, options, countDocsOnly)
-
 	// 排序
 	if !countDocsOnly {
 		if options.ReverseOrder {
@@ -224,21 +185,12 @@ func (ranker *Ranker) RankDocs(docs []types.IndexedDoc,
 
 		return outputDocs[start:end], numDocs
 	}
-
 	return outputDocs, numDocs
 }
 
 // Rank rank docs
 // 给文档评分并排序
-func (ranker *Ranker) Rank(docs []types.IndexedDoc,
-	options types.RankOpts, countDocsOnly bool) (interface{}, int) {
-
-	// 对每个文档评分
-	if ranker.idOnly {
-		outputDocs, numDocs := ranker.RankDocID(docs, options, countDocsOnly)
-		return outputDocs, numDocs
-	}
-
+func (ranker *Ranker) Rank(docs []types.IndexedDoc, options types.RankOpts, countDocsOnly bool) (interface{}, int) {
 	outputDocs, numDocs := ranker.RankDocs(docs, options, countDocsOnly)
 	return outputDocs, numDocs
 }

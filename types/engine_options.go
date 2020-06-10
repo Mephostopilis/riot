@@ -81,8 +81,6 @@ type EngineOpts struct {
 	DefRankOpts *RankOpts
 
 	StoreOpts *StoreOpts
-
-	IDOnly bool `toml:"idOnly"`
 }
 
 // Init init engine options
@@ -133,7 +131,4 @@ func (options *EngineOpts) Init() {
 		options.DefRankOpts.ScoringCriteria = defaultRankOpts.ScoringCriteria
 	}
 
-	if options.StoreOpts.StoreShards == 0 {
-		options.StoreOpts.StoreShards = defaultStoreShards
-	}
 }

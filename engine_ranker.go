@@ -48,10 +48,10 @@ type rankerRemoveDocReq struct {
 
 // Ranker initialize the ranker channel
 func (engine *Engine) initRanker(options *types.EngineOpts) {
-	// 初始化索引器和排序器
+	// 初始化排序器
 	engine.rankers = make([]*core.Ranker, options.NumShards)
 	for shard := 0; shard < options.NumShards; shard++ {
-		ranker, _ := core.NewRanker(options.IDOnly)
+		ranker, _ := core.NewRanker()
 		engine.rankers[shard] = ranker
 	}
 
@@ -68,34 +68,32 @@ func (engine *Engine) initRanker(options *types.EngineOpts) {
 
 func (engine *Engine) rankerAddDoc(shard int) {
 	for {
-		request := <-engine.rankerAddDocChans[shard]
-		if engine.initOptions.IDOnly {
-			engine.rankers[shard].AddDoc(request.docId, request.fields)
-		} else {
-			engine.rankers[shard].AddDoc(request.docId, request.fields,
-				request.content, request.attri)
+		select {
+		case request := <-engine.rankerAddDocChans[shard]:
+			engine.rankers[shard].AddDoc(request.docId, request.fields, request.content, request.attri)
 		}
 	}
 }
 
 func (engine *Engine) rankerRank(shard int) {
 	for {
-		request := <-engine.rankerRankChans[shard]
-		if request.options.MaxOutputs != 0 {
-			request.options.MaxOutputs += request.options.OutputOffset
+		select {
+		case request := <-engine.rankerRankChans[shard]:
+			if request.options.MaxOutputs != 0 {
+				request.options.MaxOutputs += request.options.OutputOffset
+			}
+			request.options.OutputOffset = 0
+			outputDocs, numDocs := engine.rankers[shard].Rank(request.docs, request.options, request.countDocsOnly)
+			request.rankerReturnChan <- rankerReturnReq{docs: outputDocs, numDocs: numDocs}
 		}
-		request.options.OutputOffset = 0
-		outputDocs, numDocs := engine.rankers[shard].Rank(request.docs,
-			request.options, request.countDocsOnly)
-
-		request.rankerReturnChan <- rankerReturnReq{
-			docs: outputDocs, numDocs: numDocs}
 	}
 }
 
 func (engine *Engine) rankerRemoveDoc(shard int) {
 	for {
-		request := <-engine.rankerRemoveDocChans[shard]
-		engine.rankers[shard].RemoveDoc(request.docId)
+		select {
+		case request := <-engine.rankerRemoveDocChans[shard]:
+			engine.rankers[shard].RemoveDoc(request.docId)
+		}
 	}
 }

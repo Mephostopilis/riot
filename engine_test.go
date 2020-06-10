@@ -116,16 +116,16 @@ func TestEngineIndexDoc(t *testing.T) {
 	AddDocs(engine)
 
 	outputs := engine.Search(test.Req1)
-	assert.Equal(t, "2", len(outputs.Tokens))
+	assert.Equal(t, 2, len(outputs.Tokens))
 	assert.Equal(t, "world", outputs.Tokens[0])
 	assert.Equal(t, "人口", outputs.Tokens[1])
 
 	outDocs := outputs.Docs.(types.ScoredDocs)
-	assert.Equal(t, "3", len(outDocs))
+	assert.Equal(t, 3, len(outDocs))
 
 	log.Info("TestEngineIndexDoc: %v", outDocs)
 	assert.Equal(t, "2", outDocs[0].DocId)
-	assert.Equal(t, "333", int(outDocs[0].Scores[0]*1000))
+	assert.Equal(t, 333, int(outDocs[0].Scores[0]*1000))
 	assert.Equal(t, "[4 11]", outDocs[0].TokenSnippetLocs)
 
 	assert.Equal(t, "5", outDocs[1].DocId)
@@ -533,7 +533,6 @@ var (
 		},
 		DefRankOpts: &test.RankOptsMax1,
 		IndexerOpts: test.InxOpts,
-		IDOnly:      true,
 	}
 )
 
@@ -728,9 +727,7 @@ func TestSearchNotUseGse(t *testing.T) {
 		},
 	})
 
-	engine1 := New(types.EngineOpts{
-		IDOnly: true,
-	})
+	engine1 := New(types.EngineOpts{})
 
 	AddDocs(engine)
 	AddDocs(engine1)

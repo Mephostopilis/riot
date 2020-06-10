@@ -82,7 +82,6 @@ func testRankOpt(idOnly bool) types.EngineOpts {
 			Using:   1,
 			GseDict: "zh,./testdata/test_dict.txt",
 		},
-		IDOnly:      idOnly,
 		DefRankOpts: &rankTestOpts,
 		IndexerOpts: test.InxOpts,
 	}
@@ -183,7 +182,6 @@ func TestDocGetAllDocAndID(t *testing.T) {
 			GseDict: "zh,./testdata/test_dict.txt",
 		},
 		NumShards:   5,
-		IDOnly:      true,
 		DefRankOpts: &rankTestOpts,
 		IndexerOpts: test.InxOpts,
 		StoreOpts: &types.StoreOpts{
@@ -273,7 +271,6 @@ func testOpts(use int, store string, args ...bool) types.EngineOpts {
 			UseStore:    true,
 			StoreFolder: store,
 		},
-		IDOnly: true,
 	}
 }
 

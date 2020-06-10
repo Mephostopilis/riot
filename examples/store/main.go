@@ -24,7 +24,7 @@ import (
 
 var (
 	// searcher is coroutine safe
-	searcher = riot.Engine{}
+	var searcher *riot.Engine
 
 	text  = "Google Is Experimenting With Virtual Reality Advertising"
 	text1 = `Google accidentally pushed Bluetooth update for Home
@@ -33,16 +33,20 @@ var (
 	rounded cards, new colors, and the 4 mysterious colored dots again`
 
 	opts = types.EngineOpts{
-		Using: 1,
+		SegmenterOpts: &types.SegmenterOpts{
+			Using:         1,
+			GseDict:       "../../testdata/test_dict.txt",
+			StopTokenFile: "../../data/dict/stop_tokens.txt",
+		},
 		IndexerOpts: &types.IndexerOpts{
 			IndexType: types.DocIdsIndex,
 		},
-		UseStore: true,
-		// StoreFolder: path,
-		StoreEngine: "bg", // bg: badger, lbd: leveldb, bolt: bolt
-		// GseDict: "../../data/dict/dictionary.txt",
-		GseDict:       "../../testdata/test_dict.txt",
-		StopTokenFile: "../../data/dict/stop_tokens.txt",
+		StoreOpts: &types.StoreOpts{
+			UseStore: true,
+			// StoreFolder: path,
+			StoreEngine: "bg", // bg: badger, lbd: leveldb, bolt: bolt
+			// GseDict: "../../data/dict/dictionary.txt",
+		},
 	}
 )
 
@@ -50,7 +54,7 @@ func initEngine() {
 	// gob.Register(MyAttriStruct{})
 
 	// var path = "./riot-index"
-	searcher.Init(opts)
+	searcher = riot.New(opts)
 	defer searcher.Close()
 	// os.MkdirAll(path, 0777)
 

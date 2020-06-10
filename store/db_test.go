@@ -60,19 +60,6 @@ func TestLdb(t *testing.T) {
 	// defer db.Close()
 }
 
-func TestBolt(t *testing.T) {
-	db, err := OpenBolt(TestDBName)
-	assert.Equal(t, "<nil>", err)
-	if err != nil {
-		log.Error("%v", err)
-		return
-	}
-
-	log.Info("TestBolt...")
-	DBTest(t, db)
-	// defer db.Close()
-}
-
 func DBTest(t *testing.T, db Store) {
 	log.Info("db test...")
 	os.MkdirAll(TestDBName, 0777)

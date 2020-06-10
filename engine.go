@@ -22,6 +22,7 @@ Package riot is riot engine
 package riot
 
 import (
+	"encoding/json"
 	"fmt"
 	"runtime"
 	"sort"
@@ -37,9 +38,6 @@ import (
 	"github.com/go-ego/riot/store"
 	"github.com/go-ego/riot/types"
 	"github.com/go-ego/riot/utils"
-	"github.com/shirou/gopsutil/mem"
-
-	"github.com/go-kratos/kratos/pkg/log"
 )
 
 const (
@@ -73,29 +71,22 @@ type Engine struct {
 	rankers    []*core.Ranker
 	dbs        []store.Store
 
+	segmenterChan chan segmenterReq
+
 	// 建立索引器使用的通信通道
-	segmenterChan         chan segmenterReq
-	indexerAddDocChans    []chan indexerAddDocReq
-	indexerRemoveDocChans []chan indexerRemoveDocReq
-	rankerAddDocChans     []chan rankerAddDocReq
+	indexerAddDocChans []chan indexerAddDocReq
+	indexerLookupChans []chan indexerLookupReq
 
 	// 建立排序器使用的通信通道
-	indexerLookupChans   []chan indexerLookupReq
-	rankerRankChans      []chan rankerRankReq
-	rankerRemoveDocChans []chan rankerRemoveDocReq
-
-	// 建立持久存储使用的通信通道
-	storeIndexDocChans []chan storeIndexDocReq
-	storeInitChan      chan bool
+	rankerAddDocChans []chan rankerAddDocReq
+	rankerRankChans   []chan rankerRankReq
 }
 
 func Default() (engine *Engine) {
 	var (
-		storageShards = 10
-		numShards     = 10
-		segmentDict   string
+		numShards   = 10
+		segmentDict string
 	)
-
 	opts := types.EngineOpts{
 
 		SegmenterOpts: &types.SegmenterOpts{
@@ -107,10 +98,7 @@ func Default() (engine *Engine) {
 		IndexerOpts: &types.IndexerOpts{
 			IndexType: types.DocIdsIndex,
 		},
-		StoreOpts: &types.StoreOpts{
-			StoreShards: storageShards,
-			UseStore:    true,
-		},
+		StoreOpts: &types.StoreOpts{},
 	}
 
 	engine = New(opts)
@@ -127,6 +115,9 @@ func New(options types.EngineOpts) (engine *Engine) {
 	engine = new(Engine)
 	engine.initOptions = options
 
+	// 初始化持久化存储通道
+	engine.initStore(&options)
+
 	// 初始化分词器
 	engine.initSegment(&options)
 
@@ -137,11 +128,6 @@ func New(options types.EngineOpts) (engine *Engine) {
 	engine.initRanker(&options)
 
 	engine.CheckMem()
-
-	// 初始化持久化存储通道
-	if options.StoreOpts.UseStore {
-		engine.initStore(&options)
-	}
 
 	atomic.AddUint64(&engine.numDocsStored, engine.numIndexingReqs)
 	return
@@ -173,30 +159,25 @@ func (engine *Engine) Startup() {
 			go engine.rankerRank(shard)
 		}
 	}
-
-	// 启动持久化存储工作协程
-	if options.StoreOpts.UseStore {
-		engine.startStore()
-	}
 }
 
 // CheckMem check the memory when the memory is larger
 // than 99.99% using the store
 func (engine *Engine) CheckMem() {
 	// Todo test
-	if !engine.initOptions.StoreOpts.UseStore {
-		log.Info("Check virtualMemory...")
+	// if !engine.initOptions.StoreOpts.UseStore {
+	// 	log.Info("Check virtualMemory...")
+	// 	vmem, _ := mem.VirtualMemory()
 
-		vmem, _ := mem.VirtualMemory()
-		log.Info("Total: %v, Free: %v, UsedPercent: %f%%\n", vmem.Total, vmem.Free, vmem.UsedPercent)
+	// 	log.Info("Total: %v, Free: %v, UsedPercent: %f%%\n", vmem.Total, vmem.Free, vmem.UsedPercent)
 
-		useMem := fmt.Sprintf("%.2f", vmem.UsedPercent)
-		if useMem == "99.99" {
-			engine.initOptions.StoreOpts.UseStore = true
-			// engine.initOptions.StoreFolder = DefaultPath
-			// os.MkdirAll(DefaultPath, 0777)
-		}
-	}
+	// 	useMem := fmt.Sprintf("%.2f", vmem.UsedPercent)
+	// 	if useMem == "99.99" {
+	// 		engine.initOptions.StoreOpts.UseStore = true
+	// 		// engine.initOptions.StoreFolder = DefaultPath
+	// 		// os.MkdirAll(DefaultPath, 0777)
+	// 	}
+	// }
 }
 
 // IndexDoc add the document to the index
@@ -211,45 +192,18 @@ func (engine *Engine) CheckMem() {
 //      1. 这个函数是线程安全的，请尽可能并发调用以提高索引速度
 //      2. 这个函数调用是非同步的，也就是说在函数返回时有可能文档还没有加入索引中，因此
 //         如果立刻调用Search可能无法查询到这个文档。强制刷新索引请调用FlushIndex函数。
-func (engine *Engine) IndexDoc(docId string, data types.DocData, forceUpdate ...bool) {
-	engine.Index(docId, data, forceUpdate...)
-}
-
-// Index add the document to the index
-func (engine *Engine) Index(docId string, data types.DocData, forceUpdate ...bool) {
-
-	var force bool
-	if len(forceUpdate) > 0 {
-		force = forceUpdate[0]
+func (engine *Engine) IndexDoc(docId string, data types.DocData) (err error) {
+	if docId == "0" {
+		return
 	}
-
-	// if engine.HasDoc(docId) {
-	// 	engine.RemoveDoc(docId)
-	// }
-
-	// data.Tokens
-	engine.internalIndexDoc(docId, data, force)
-
-	hash := murmur.Sum32(docId) % uint32(engine.initOptions.StoreOpts.StoreShards)
-
-	if engine.initOptions.StoreOpts.UseStore && docId != "0" {
-		engine.storeIndexDocChans[hash] <- storeIndexDocReq{
-			docId: docId, data: data}
-	}
-}
-
-func (engine *Engine) internalIndexDoc(docId string, data types.DocData, forceUpdate bool) {
-
-	if docId != "0" {
-		atomic.AddUint64(&engine.numIndexingReqs, 1)
-	}
-	if forceUpdate {
-		atomic.AddUint64(&engine.numForceUpdatingReqs, 1)
-	}
-
 	hash := murmur.Sum32(fmt.Sprintf("%s%s", docId, data.Content))
-	engine.segmenterChan <- segmenterReq{
-		docId: docId, hash: hash, data: data, forceUpdate: forceUpdate}
+	engine.segmenterChan <- segmenterReq{docId: docId, hash: hash, data: data}
+	bytes, err := json.Marshal(data)
+	if err != nil {
+		return
+	}
+	engine.dbs[0].Set([]byte(fmt.Sprintf("doc:%s", docId)), bytes)
+	return
 }
 
 // RemoveDoc remove the document from the index
@@ -263,36 +217,18 @@ func (engine *Engine) internalIndexDoc(docId string, data types.DocData, forceUp
 //      1. 这个函数是线程安全的，请尽可能并发调用以提高索引速度
 //      2. 这个函数调用是非同步的，也就是说在函数返回时有可能文档还没有加入索引中，因此
 //         如果立刻调用 Search 可能无法查询到这个文档。强制刷新索引请调用 FlushIndex 函数。
-func (engine *Engine) RemoveDoc(docId string, forceUpdate ...bool) {
-	var force bool
-	if len(forceUpdate) > 0 {
-		force = forceUpdate[0]
+func (engine *Engine) RemoveDoc(docId string) (err error) {
+	if docId == "0" {
+		return
 	}
-
-	if docId != "0" {
-		atomic.AddUint64(&engine.numRemovingReqs, 1)
-	}
-
-	if force {
-		atomic.AddUint64(&engine.numForceUpdatingReqs, 1)
-	}
+	atomic.AddUint64(&engine.numRemovingReqs, 1)
 
 	for shard := 0; shard < engine.initOptions.NumShards; shard++ {
-		engine.indexerRemoveDocChans[shard] <- indexerRemoveDocReq{
-			docId: docId, forceUpdate: force}
-
-		if docId == "0" {
-			continue
-		}
+		engine.indexerRemoveDocChans[shard] <- indexerRemoveDocReq{docId: docId}
 		engine.rankerRemoveDocChans[shard] <- rankerRemoveDocReq{docId: docId}
 	}
-
-	if engine.initOptions.StoreOpts.UseStore && docId != "0" {
-		// 从数据库中删除
-		hash := murmur.Sum32(docId) % uint32(engine.initOptions.StoreOpts.StoreShards)
-
-		go engine.storeRemoveDoc(docId, hash)
-	}
+	engine.dbs[0].Delete([]byte(fmt.Sprintf("doc:%s", docId)))
+	return
 }
 
 // // 获取文本的分词结果
@@ -376,50 +312,36 @@ func (engine *Engine) rankOutDocs(rankerOutput rankerReturnReq, rankOutArr types
 }
 
 // NotTimeOut not set engine timeout
-func (engine *Engine) NotTimeOut(request types.SearchReq,
-	rankerReturnChan chan rankerReturnReq) (
+func (engine *Engine) NotTimeOut(request types.SearchReq, rankerReturnChan chan rankerReturnReq) (
 	rankOutArr interface{}, numDocs int) {
 
 	var (
-		rankOutID  types.ScoredIDs
 		rankOutDoc types.ScoredDocs
-		idOnly     = engine.initOptions.IDOnly
 	)
 
 	for shard := 0; shard < engine.initOptions.NumShards; shard++ {
 		rankerOutput := <-rankerReturnChan
 		if !request.CountDocsOnly {
 			if rankerOutput.docs != nil {
-				if idOnly {
-					rankOutID = engine.rankOutID(rankerOutput, rankOutID)
-				} else {
-					rankOutDoc = engine.rankOutDocs(rankerOutput, rankOutDoc)
-				}
+
+				rankOutDoc = engine.rankOutDocs(rankerOutput, rankOutDoc)
+
 			}
 		}
 		numDocs += rankerOutput.numDocs
 	}
-
-	if idOnly {
-		rankOutArr = rankOutID
-		return
-	}
-
 	rankOutArr = rankOutDoc
 	return
 }
 
 // TimeOut set engine timeout
-func (engine *Engine) TimeOut(request types.SearchReq,
-	rankerReturnChan chan rankerReturnReq) (
+func (engine *Engine) TimeOut(request types.SearchReq, rankerReturnChan chan rankerReturnReq) (
 	rankOutArr interface{}, numDocs int, isTimeout bool) {
 
 	deadline := time.Now().Add(time.Nanosecond * time.Duration(NumNanosecondsInAMillisecond*request.Timeout))
 
 	var (
-		rankOutID  types.ScoredIDs
 		rankOutDoc types.ScoredDocs
-		idOnly     = engine.initOptions.IDOnly
 	)
 
 	for shard := 0; shard < engine.initOptions.NumShards; shard++ {
@@ -427,11 +349,9 @@ func (engine *Engine) TimeOut(request types.SearchReq,
 		case rankerOutput := <-rankerReturnChan:
 			if !request.CountDocsOnly {
 				if rankerOutput.docs != nil {
-					if idOnly {
-						rankOutID = engine.rankOutID(rankerOutput, rankOutID)
-					} else {
-						rankOutDoc = engine.rankOutDocs(rankerOutput, rankOutDoc)
-					}
+
+					rankOutDoc = engine.rankOutDocs(rankerOutput, rankOutDoc)
+
 				}
 			}
 			numDocs += rankerOutput.numDocs
@@ -441,18 +361,12 @@ func (engine *Engine) TimeOut(request types.SearchReq,
 		}
 	}
 
-	if idOnly {
-		rankOutArr = rankOutID
-		return
-	}
-
 	rankOutArr = rankOutDoc
 	return
 }
 
 // RankID rank docs by types.ScoredIDs
-func (engine *Engine) RankID(request types.SearchReq, rankOpts types.RankOpts,
-	tokens []string, rankerReturnChan chan rankerReturnReq) (output types.SearchResp) {
+func (engine *Engine) RankID(request types.SearchReq, rankOpts types.RankOpts, tokens []string, rankerReturnChan chan rankerReturnReq) (output types.SearchResp) {
 	// 从通信通道读取排序器的输出
 	numDocs := 0
 	rankOutput := types.ScoredIDs{}
@@ -504,8 +418,7 @@ func (engine *Engine) RankID(request types.SearchReq, rankOpts types.RankOpts,
 }
 
 // Ranks rank docs by types.ScoredDocs
-func (engine *Engine) Ranks(request types.SearchReq, rankOpts types.RankOpts,
-	tokens []string, rankerReturnChan chan rankerReturnReq) (output types.SearchResp) {
+func (engine *Engine) Ranks(request types.SearchReq, rankOpts types.RankOpts, tokens []string, rankerReturnChan chan rankerReturnReq) (output types.SearchResp) {
 	// 从通信通道读取排序器的输出
 	numDocs := 0
 	rankOutput := types.ScoredDocs{}
@@ -600,15 +513,13 @@ func (engine *Engine) FlushIndex() {
 // 关闭引擎
 func (engine *Engine) Close() {
 	engine.Flush()
-	if engine.initOptions.StoreOpts.UseStore {
-		for _, db := range engine.dbs {
-			db.Close()
-		}
+	for _, db := range engine.dbs {
+		db.Close()
 	}
 }
 
 // 从文本hash得到要分配到的 shard
 func (engine *Engine) getShard(hash uint32) int {
-	return int(hash - hash/uint32(engine.initOptions.NumShards)*
-		uint32(engine.initOptions.NumShards))
+	n := engine.initOptions.NumShards
+	return int(hash - hash/uint32(n)*uint32(n))
 }

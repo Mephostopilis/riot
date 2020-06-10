@@ -27,11 +27,8 @@ const (
 )
 
 var supportedStore = map[string]func(path string) (Store, error){
-	"ldb":  OpenLeveldb,
-	"bg":   OpenBadger, // bad to bg
-	"bolt": OpenBolt,
-	// "kv":   OpenKV,
-	// "ledisdb": Open,
+	"ldb": OpenLeveldb,
+	"bg":  OpenBadger, // bad to bg
 }
 
 // RegisterStore register store engine
@@ -63,10 +60,8 @@ func OpenStore(path string, args ...string) (Store, error) {
 			storeName = storeEnv
 		}
 	}
-
 	if fn, has := supportedStore[storeName]; has {
 		return fn(path)
 	}
-
 	return nil, fmt.Errorf("unsupported store engine: %v", storeName)
 }

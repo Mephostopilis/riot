@@ -15,7 +15,7 @@ type Engine struct {
 
 type TMap map[string][]int
 
-func (engine *Engine) splitData(request segmenterReq) (TMap, int) {
+func (engine *Engine) splitData(request riot.segmenterReq) (TMap, int) {
 	var (
 		num       int
 		numTokens int

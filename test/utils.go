@@ -87,7 +87,6 @@ func OrderlessOpts(idOnly bool) types.EngineOpts {
 			Using:   1,
 			GseDict: "zh,./testdata/test_dict.txt",
 		},
-		IDOnly: idOnly,
 	}
 }
 
@@ -99,9 +98,7 @@ func rankEngineOpts(rankOpts types.RankOpts) types.EngineOpts {
 		},
 		DefRankOpts: &rankOpts,
 		IndexerOpts: InxOpts,
-		StoreOpts: &types.StoreOpts{
-			UseStore: false,
-		},
+		StoreOpts:   &types.StoreOpts{},
 	}
 }
 

@@ -31,9 +31,13 @@ import (
 // KeywordIndices 反向索引表的一行，收集了一个搜索键出现的所有文档，按照DocId从小到大排序。
 type KeywordIndices struct {
 	// 下面的切片是否为空，取决于初始化时IndexType的值
-	docIds      []string  // 全部类型都有
-	frequencies []float32 // IndexType == FrequenciesIndex
-	locations   [][]int   // IndexType == LocsIndex
+	docId       string  // 全部类型都有
+	frequencies float32 // IndexType == FrequenciesIndex
+	locations   []int   // IndexType == LocsIndex
+}
+
+// 倒排列表
+type PostingList struct {
 }
 
 // Indexer 索引器
@@ -42,8 +46,8 @@ type Indexer struct {
 	// 加了读写锁以保证读写安全
 	tableLock struct {
 		sync.RWMutex
-		table     map[string]*KeywordIndices
-		docsState map[string]int // nil: 表示无状态记录，0: 存在于索引中，1: 等待删除，2: 等待加入
+		table     map[string][]*KeywordIndices // 倒排索引
+		docsState map[string]int               // nil: 表示无状态记录，0: 存在于索引中，1: 等待删除，2: 等待加入
 	}
 
 	addCacheLock struct {
@@ -62,7 +66,6 @@ type Indexer struct {
 
 	// 这实际上是总文档数的一个近似
 	numDocs uint64
-	// docIDs *hset.Hset
 
 	// 所有被索引文本的总关键词数
 	totalTokenLen float32
@@ -74,11 +77,10 @@ type Indexer struct {
 // NewIndexer 初始化索引器
 func NewIndexer(options types.IndexerOpts) (indexer *Indexer, err error) {
 	indexer = new(Indexer)
-
 	options.Init()
 	indexer.initOptions = options
 
-	indexer.tableLock.table = make(map[string]*KeywordIndices)
+	indexer.tableLock.table = make(map[string][]*KeywordIndices)
 	indexer.tableLock.docsState = make(map[string]int)
 
 	indexer.addCacheLock.addCache = make([]*types.DocIndex, options.DocCacheSize)
@@ -88,8 +90,8 @@ func NewIndexer(options types.IndexerOpts) (indexer *Indexer, err error) {
 }
 
 // getDocId 从 KeywordIndices 中得到第i个文档的 DocId
-func (indexer *Indexer) getDocId(ti *KeywordIndices, i int) string {
-	return ti.docIds[i]
+func (indexer *Indexer) getDocId(word string, i int) string {
+	return indexer.tableLock.table[word][i].docId
 }
 
 // HasDoc doc is exist return true
@@ -103,12 +105,12 @@ func (indexer *Indexer) HasDoc(docId string) bool {
 }
 
 // getIndexLen 得到 KeywordIndices 中文档总数
-func (indexer *Indexer) getIndexLen(ti *KeywordIndices) int {
-	return len(ti.docIds)
+func (indexer *Indexer) getIndexLen(word string) int {
+	return len(indexer.tableLock.table[word])
 }
 
 // AddDocToCache 向 ADDCACHE 中加入一个文档
-func (indexer *Indexer) AddDocToCache(doc *types.DocIndex, forceUpdate bool) {
+func (indexer *Indexer) AddDocToCache(doc *types.DocIndex) {
 
 	indexer.addCacheLock.Lock()
 	if doc != nil {
@@ -129,15 +131,13 @@ func (indexer *Indexer) AddDocToCache(doc *types.DocIndex, forceUpdate bool) {
 				// ok && docState == 0 表示存在于索引中，需先删除再添加
 				// ok && docState == 1 表示不一定存在于索引中，等待删除，需先删除再添加
 				if position != i {
-					indexer.addCacheLock.addCache[position], indexer.addCacheLock.addCache[i] =
-						indexer.addCacheLock.addCache[i], indexer.addCacheLock.addCache[position]
+					indexer.addCacheLock.addCache[position], indexer.addCacheLock.addCache[i] = indexer.addCacheLock.addCache[i], indexer.addCacheLock.addCache[position]
 				}
 
 				if docState == 0 {
 					// delete docs
 					indexer.removeCacheLock.Lock()
-					indexer.removeCacheLock.removeCache[indexer.removeCacheLock.removeCachePointer] =
-						docIndex.DocId
+					indexer.removeCacheLock.removeCache[indexer.removeCacheLock.removeCachePointer] = docIndex.DocId
 					indexer.removeCacheLock.removeCachePointer++
 					indexer.removeCacheLock.Unlock()
 
@@ -352,7 +352,9 @@ func (indexer *Indexer) RemoveDocs(docs *types.DocsId) {
 // 查找包含全部搜索键(AND操作)的文档
 // 当 docIds 不为 nil 时仅从 docIds 指定的文档中查找
 func (indexer *Indexer) Lookup(
-	tokens, labels []string, docIds map[string]bool, countDocsOnly bool,
+	tokens, labels []string,
+	docIds map[string]bool,
+	countDocsOnly bool,
 	logic ...types.Logic) (docs []types.IndexedDoc, numDocs int) {
 
 	indexer.tableLock.RLock()
@@ -393,9 +395,7 @@ func (indexer *Indexer) Lookup(
 	return indexer.internalLookup(keywords, tokens, docIds, countDocsOnly)
 }
 
-func (indexer *Indexer) internalLookup(
-	keywords, tokens []string, docIds map[string]bool, countDocsOnly bool) (
-	docs []types.IndexedDoc, numDocs int) {
+func (indexer *Indexer) internalLookup(keywords, tokens []string, docIds map[string]bool, countDocsOnly bool) (docs []types.IndexedDoc, numDocs int) {
 
 	table := make([]*KeywordIndices, len(keywords))
 	for i, keyword := range keywords {

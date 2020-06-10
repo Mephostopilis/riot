@@ -28,10 +28,10 @@ var (
 
 func main() {
 	// Init searcher
-	searcher.Init(types.EngineOpts{
-		Using:     4,
-		IDOnly:    true,
-		NotUseGse: true,
+	searcher := riot.New(types.EngineOpts{
+		SegmenterOpts: &types.SegmenterOpts{
+			Using: 4,
+		},
 	})
 	defer searcher.Close()
 

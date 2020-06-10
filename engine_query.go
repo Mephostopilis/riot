@@ -142,7 +142,6 @@ func (engine *Engine) SearchID(request types.SearchReq) (output types.SearchID) 
 func (engine *Engine) Search(request types.SearchReq) (output types.SearchResp) {
 
 	tokens := engine.Tokens(request)
-
 	var rankOpts types.RankOpts
 	if request.RankOpts == nil {
 		rankOpts = *engine.initOptions.DefRankOpts
@@ -155,8 +154,7 @@ func (engine *Engine) Search(request types.SearchReq) (output types.SearchResp) 
 	}
 
 	// 建立排序器返回的通信通道
-	rankerReturnChan := make(
-		chan rankerReturnReq, engine.initOptions.NumShards)
+	rankerReturnChan := make(chan rankerReturnReq, engine.initOptions.NumShards)
 
 	// 生成查找请求
 	lookupRequest := indexerLookupReq{
@@ -173,11 +171,6 @@ func (engine *Engine) Search(request types.SearchReq) (output types.SearchResp) 
 	// 向索引器发送查找请求
 	for shard := 0; shard < engine.initOptions.NumShards; shard++ {
 		engine.indexerLookupChans[shard] <- lookupRequest
-	}
-
-	if engine.initOptions.IDOnly {
-		output = engine.RankID(request, rankOpts, tokens, rankerReturnChan)
-		return
 	}
 
 	output = engine.Ranks(request, rankOpts, tokens, rankerReturnChan)

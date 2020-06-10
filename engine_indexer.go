@@ -23,8 +23,7 @@ import (
 )
 
 type indexerAddDocReq struct {
-	doc         *types.DocIndex
-	forceUpdate bool
+	doc *types.DocIndex
 }
 
 type indexerLookupReq struct {
@@ -39,14 +38,8 @@ type indexerLookupReq struct {
 	logic            types.Logic
 }
 
-type indexerRemoveDocReq struct {
-	docId       string
-	forceUpdate bool
-}
-
 // Indexer initialize the indexer channel
 func (engine *Engine) initIndexer(options *types.EngineOpts) {
-
 	// 初始化索引器
 	engine.indexers = make([]*core.Indexer, options.NumShards)
 	for shard := 0; shard < options.NumShards; shard++ {
@@ -56,11 +49,9 @@ func (engine *Engine) initIndexer(options *types.EngineOpts) {
 
 	// 初始所有管道
 	engine.indexerAddDocChans = make([]chan indexerAddDocReq, options.NumShards)
-	engine.indexerRemoveDocChans = make([]chan indexerRemoveDocReq, options.NumShards)
 	engine.indexerLookupChans = make([]chan indexerLookupReq, options.NumShards)
 	for shard := 0; shard < options.NumShards; shard++ {
 		engine.indexerAddDocChans[shard] = make(chan indexerAddDocReq, options.IndexerBufLen)
-		engine.indexerRemoveDocChans[shard] = make(chan indexerRemoveDocReq, options.IndexerBufLen)
 		engine.indexerLookupChans[shard] = make(chan indexerLookupReq, options.IndexerBufLen)
 	}
 }
@@ -69,53 +60,16 @@ func (engine *Engine) indexerAddDoc(shard int) {
 	for {
 		select {
 		case request := <-engine.indexerAddDocChans[shard]:
-			engine.indexers[shard].AddDocToCache(request.doc, request.forceUpdate)
+			engine.indexers[shard].AddDocToCache(request.doc)
 			if request.doc != nil {
 				atomic.AddUint64(&engine.numTokenIndexAdded, uint64(len(request.doc.Keywords)))
 				atomic.AddUint64(&engine.numDocsIndexed, 1)
 			}
-			if request.forceUpdate {
-				atomic.AddUint64(&engine.numDocsForceUpdated, 1)
-			}
 		}
-	}
-}
-
-func (engine *Engine) indexerRemoveDoc(shard int) {
-	for {
-		select {
-		case request := <-engine.indexerRemoveDocChans[shard]:
-			engine.indexers[shard].RemoveDocToCache(request.docId, request.forceUpdate)
-			if request.docId != "0" {
-				atomic.AddUint64(&engine.numDocsRemoved, 1)
-			}
-			if request.forceUpdate {
-				atomic.AddUint64(&engine.numDocsForceUpdated, 1)
-			}
-		}
-
 	}
 }
 
 func (engine *Engine) orderLess(request indexerLookupReq, docs []types.IndexedDoc) {
-	if engine.initOptions.IDOnly {
-		var outputDocs types.ScoredIDs
-		for _, d := range docs {
-			outputDocs = append(outputDocs, types.ScoredID{
-				DocId:            d.DocId,
-				TokenSnippetLocs: d.TokenSnippetLocs,
-				TokenLocs:        d.TokenLocs,
-			})
-		}
-
-		request.rankerReturnChan <- rankerReturnReq{
-			docs:    outputDocs,
-			numDocs: len(outputDocs),
-		}
-
-		return
-	}
-
 	var outputDocs types.ScoredDocs
 	for _, d := range docs {
 		ids := types.ScoredID{
@@ -137,35 +91,39 @@ func (engine *Engine) orderLess(request indexerLookupReq, docs []types.IndexedDo
 
 func (engine *Engine) indexerLookup(shard int) {
 	for {
-		request := <-engine.indexerLookupChans[shard]
+		select {
+		case request := <-engine.indexerLookupChans[shard]:
+			docs, numDocs := engine.indexers[shard].Lookup(
+				request.tokens,
+				request.labels,
+				request.docIds,
+				request.countDocsOnly,
+				request.logic)
 
-		docs, numDocs := engine.indexers[shard].Lookup(
-			request.tokens, request.labels,
-			request.docIds, request.countDocsOnly, request.logic)
+			if request.countDocsOnly {
+				request.rankerReturnChan <- rankerReturnReq{numDocs: numDocs}
+				continue
+			}
 
-		if request.countDocsOnly {
-			request.rankerReturnChan <- rankerReturnReq{numDocs: numDocs}
-			continue
+			if len(docs) == 0 {
+				request.rankerReturnChan <- rankerReturnReq{}
+				continue
+			}
+
+			if request.orderless {
+				// var outputDocs interface{}
+				engine.orderLess(request, docs)
+				continue
+			}
+
+			rankerRequest := rankerRankReq{
+				countDocsOnly:    request.countDocsOnly,
+				docs:             docs,
+				options:          request.options,
+				rankerReturnChan: request.rankerReturnChan,
+			}
+			engine.rankerRankChans[shard] <- rankerRequest
 		}
 
-		if len(docs) == 0 {
-			request.rankerReturnChan <- rankerReturnReq{}
-			continue
-		}
-
-		if request.orderless {
-			// var outputDocs interface{}
-			engine.orderLess(request, docs)
-
-			continue
-		}
-
-		rankerRequest := rankerRankReq{
-			countDocsOnly:    request.countDocsOnly,
-			docs:             docs,
-			options:          request.options,
-			rankerReturnChan: request.rankerReturnChan,
-		}
-		engine.rankerRankChans[shard] <- rankerRequest
 	}
 }

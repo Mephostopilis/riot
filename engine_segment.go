@@ -27,10 +27,9 @@ import (
 type TMap map[string][]int
 
 type segmenterReq struct {
-	docId string
-	hash  uint32
-	data  types.DocData
-	// data        types.DocumentIndexData
+	docId       string
+	hash        uint32
+	data        types.DocData
 	forceUpdate bool
 }
 
@@ -198,7 +197,6 @@ func (engine *Engine) makeTokensMap(request segmenterReq) (TMap, int) {
 	if options.PinYin {
 		strArr := engine.pinyin(request.data.Content)
 		count := len(strArr)
-
 		for i := 0; i < count; i++ {
 			str := strArr[i]
 			if !engine.stopTokens.IsStopToken(str) {
@@ -216,11 +214,6 @@ func (engine *Engine) segmenterWorker() {
 		select {
 		case request := <-engine.segmenterChan:
 			if request.docId == "0" {
-				if request.forceUpdate {
-					for i := 0; i < engine.initOptions.NumShards; i++ {
-						engine.indexerAddDocChans[i] <- indexerAddDocReq{forceUpdate: true}
-					}
-				}
 				continue
 			}
 
@@ -242,33 +235,26 @@ func (engine *Engine) segmenterWorker() {
 					TokenLen: float32(numTokens),
 					Keywords: make([]types.KeywordIndex, len(tokensMap)),
 				},
-				forceUpdate: request.forceUpdate,
 			}
 			iTokens := 0
 			for k, v := range tokensMap {
 				indexerRequest.doc.Keywords[iTokens] = types.KeywordIndex{
-					Text: k,
-					// 非分词标注的词频设置为0，不参与tf-idf计算
-					Frequency: float32(len(v)),
-					Starts:    v}
+					Text:      k,
+					Frequency: float32(len(v)), // 非分词标注的词频设置为0，不参与tf-idf计算
+					Starts:    v,
+				}
 				iTokens++
 			}
 
 			engine.indexerAddDocChans[shard] <- indexerRequest
-			if request.forceUpdate {
-				for i := 0; i < engine.initOptions.NumShards; i++ {
-					if i == shard {
-						continue
-					}
-					engine.indexerAddDocChans[i] <- indexerAddDocReq{forceUpdate: true}
-				}
-			}
+			// 请求排序
 			rankerRequest := rankerAddDocReq{
-				// docId: request.docId, fields: request.data.Fields}
-				docId: request.docId, fields: request.data.Fields,
-				content: request.data.Content, attri: request.data.Attri}
+				docId:   request.docId,
+				fields:  request.data.Fields,
+				content: request.data.Content,
+				attri:   request.data.Attri,
+			}
 			engine.rankerAddDocChans[shard] <- rankerRequest
 		}
-
 	}
 }
