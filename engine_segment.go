@@ -235,7 +235,12 @@ func (engine *Engine) segmenterWorker() {
 					TokenLen: float32(numTokens),
 					Keywords: make([]types.KeywordIndex, len(tokensMap)),
 				},
+				docId:   request.docId,
+				fields:  request.data.Fields,
+				content: request.data.Content,
+				attri:   request.data.Attri,
 			}
+
 			iTokens := 0
 			for k, v := range tokensMap {
 				indexerRequest.doc.Keywords[iTokens] = types.KeywordIndex{
@@ -245,16 +250,7 @@ func (engine *Engine) segmenterWorker() {
 				}
 				iTokens++
 			}
-
 			engine.indexerAddDocChans[shard] <- indexerRequest
-			// 请求排序
-			rankerRequest := rankerAddDocReq{
-				docId:   request.docId,
-				fields:  request.data.Fields,
-				content: request.data.Content,
-				attri:   request.data.Attri,
-			}
-			engine.rankerAddDocChans[shard] <- rankerRequest
 		}
 	}
 }

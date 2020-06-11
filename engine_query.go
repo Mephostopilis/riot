@@ -20,7 +20,6 @@ import (
 
 	"encoding/gob"
 
-	"github.com/go-ego/murmur"
 	"github.com/go-ego/riot/types"
 )
 
@@ -41,19 +40,6 @@ func (engine *Engine) HasDoc(docId string) bool {
 	}
 
 	return false
-}
-
-// HasDocDB if the document is exist in the database
-// return true
-func (engine *Engine) HasDocDB(docId string) bool {
-	shard := murmur.Sum32(docId) % uint32(engine.initOptions.StoreOpts.StoreShards)
-
-	has, err := engine.dbs[shard].Has([]byte(docId))
-	if err != nil {
-		log.Println("engine.dbs[shard].Has(b[0:length]): ", err)
-	}
-
-	return has
 }
 
 // GetDBAllIds get all the DocId from the storage database
@@ -96,13 +82,6 @@ func (engine *Engine) GetDBAllDocs() (docsId []string, docsData []types.DocData)
 	}
 
 	return docsId, docsData
-}
-
-// GetAllDocIds get all the DocId from the storage database
-// and return
-// 从数据库遍历所有的 DocId, 并返回
-func (engine *Engine) GetAllDocIds() []string {
-	return engine.GetDBAllIds()
 }
 
 // Try handler(err)

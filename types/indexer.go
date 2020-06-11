@@ -65,6 +65,11 @@ type IndexedDoc struct {
 	// TokenLocs 关键词在文本中的具体位置。
 	// 仅当索引类型为 LocsIndex 时返回有效值。
 	TokenLocs [][]int
+
+	Fields interface{}
+	docs   bool
+
+	attri interface{}
 }
 
 // DocsIndex 方便批量加入文档索引

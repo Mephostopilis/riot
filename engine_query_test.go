@@ -184,9 +184,7 @@ func TestDocGetAllDocAndID(t *testing.T) {
 		NumShards:   5,
 		DefRankOpts: &rankTestOpts,
 		IndexerOpts: test.InxOpts,
-		StoreOpts: &types.StoreOpts{
-			UseStore: true,
-		},
+		StoreOpts:   &types.StoreOpts{},
 	}
 	engine := New(opts)
 	engine.Startup()
@@ -201,10 +199,10 @@ func TestDocGetAllDocAndID(t *testing.T) {
 	assert.Equal(t, "5", len(allIds))
 	assert.Equal(t, "[3 4 1 6 2]", allIds)
 
-	allIds = engine.GetAllDocIds()
-	fmt.Println("all doc id", allIds)
-	assert.Equal(t, "5", len(allIds))
-	assert.Equal(t, "[3 4 1 6 2]", allIds)
+	// allIds = engine.GetAllDocIds()
+	// fmt.Println("all doc id", allIds)
+	// assert.Equal(t, "5", len(allIds))
+	// assert.Equal(t, "[3 4 1 6 2]", allIds)
 
 	ids, docs := engine.GetDBAllDocs()
 	fmt.Println("all id and doc", allIds, docs)

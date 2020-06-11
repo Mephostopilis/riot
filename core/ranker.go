@@ -23,47 +23,17 @@ import (
 	"github.com/go-ego/riot/utils"
 )
 
-type item struct {
-	fields  interface{}
-	docs    bool
-	content string
-	attri   interface{}
-}
-
 // Ranker ranker
 type Ranker struct {
 	lock struct {
 		sync.RWMutex
-		docs map[string]*item
 	}
 }
 
 // Init init ranker
 func NewRanker() (ranker *Ranker, err error) {
 	ranker = new(Ranker)
-	ranker.lock.docs = make(map[string]*item)
 	return
-}
-
-// AddDoc add doc
-// 给某个文档添加评分字段
-func (ranker *Ranker) AddDoc(docId string, fields interface{}, content ...interface{}) {
-	i := &item{
-		fields:  fields,
-		docs:    true,
-		content: content[0].(string),
-		attri:   content[1],
-	}
-	ranker.lock.Lock()
-	ranker.lock.docs[docId] = i
-	ranker.lock.Unlock()
-}
-
-// RemoveDoc 删除某个文档的评分字段
-func (ranker *Ranker) RemoveDoc(docId string) {
-	ranker.lock.Lock()
-	delete(ranker.lock.docs, docId)
-	ranker.lock.Unlock()
 }
 
 func maxOutput(options types.RankOpts, docsLen int) (int, int) {
@@ -79,6 +49,7 @@ func maxOutput(options types.RankOpts, docsLen int) (int, int) {
 	return start, end
 }
 
+// 根据排序
 func (ranker *Ranker) rankOutIDs(docs []types.IndexedDoc, options types.RankOpts, countDocsOnly bool) (outputDocs types.ScoredIDs, numDocs int) {
 	for _, d := range docs {
 		ranker.lock.RLock()

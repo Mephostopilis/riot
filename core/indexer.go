@@ -28,33 +28,13 @@ import (
 	"github.com/go-ego/riot/utils"
 )
 
-// KeywordIndices 反向索引表的一行，收集了一个搜索键出现的所有文档，按照DocId从小到大排序。
-type KeywordIndices struct {
-	// 下面的切片是否为空，取决于初始化时IndexType的值
-	docId       string  // 全部类型都有
-	frequencies float32 // IndexType == FrequenciesIndex
-	locations   []int   // IndexType == LocsIndex
-}
-
-// 倒排列表
-type PostingList struct {
-}
-
 // Indexer 索引器
 type Indexer struct {
-	// 从搜索键到文档列表的反向索引
-	// 加了读写锁以保证读写安全
-	tableLock struct {
-		sync.RWMutex
-		table     map[string][]*KeywordIndices // 倒排索引
-		docsState map[string]int               // nil: 表示无状态记录，0: 存在于索引中，1: 等待删除，2: 等待加入
-	}
+	initOptions types.IndexerOpts
 
-	addCacheLock struct {
-		sync.RWMutex
-		addCachePointer int
-		addCache        types.DocsIndex
-	}
+	// 临时倒排索引表
+	invertedIndex *InvertedIndex
+	forwardIndex  *ForwardIndex
 
 	removeCacheLock struct {
 		sync.RWMutex
@@ -62,16 +42,8 @@ type Indexer struct {
 		removeCache        types.DocsId
 	}
 
-	initOptions types.IndexerOpts
-
 	// 这实际上是总文档数的一个近似
 	numDocs uint64
-
-	// 所有被索引文本的总关键词数
-	totalTokenLen float32
-
-	// 每个文档的关键词长度
-	docTokenLens map[string]float32
 }
 
 // NewIndexer 初始化索引器
@@ -80,12 +52,10 @@ func NewIndexer(options types.IndexerOpts) (indexer *Indexer, err error) {
 	options.Init()
 	indexer.initOptions = options
 
-	indexer.tableLock.table = make(map[string][]*KeywordIndices)
-	indexer.tableLock.docsState = make(map[string]int)
+	indexer.forwardIndex = NewForwardIndex(nil)
+	indexer.invertedIndex = NewInvertedIndex()
 
-	indexer.addCacheLock.addCache = make([]*types.DocIndex, options.DocCacheSize)
 	indexer.removeCacheLock.removeCache = make([]string, options.DocCacheSize*2)
-	indexer.docTokenLens = make(map[string]float32)
 	return
 }
 
@@ -111,17 +81,9 @@ func (indexer *Indexer) getIndexLen(word string) int {
 
 // AddDocToCache 向 ADDCACHE 中加入一个文档
 func (indexer *Indexer) AddDocToCache(doc *types.DocIndex) {
-
-	indexer.addCacheLock.Lock()
-	if doc != nil {
-		indexer.addCacheLock.addCache[indexer.addCacheLock.addCachePointer] = doc
-		indexer.addCacheLock.addCachePointer++
+	if indexer.forwardIndex.Has(doc.DocId) {
+		
 	}
-
-	docSize := indexer.addCacheLock.addCachePointer >= indexer.initOptions.DocCacheSize
-	if docSize || forceUpdate {
-		indexer.tableLock.Lock()
-
 		position := 0
 		for i := 0; i < indexer.addCacheLock.addCachePointer; i++ {
 			docIndex := indexer.addCacheLock.addCache[i]
@@ -148,7 +110,6 @@ func (indexer *Indexer) AddDocToCache(doc *types.DocIndex) {
 			} else if !ok {
 				indexer.tableLock.docsState[docIndex.DocId] = 2
 			}
-		}
 
 		indexer.tableLock.Unlock()
 		if indexer.RemoveDocToCache("0", forceUpdate) {
@@ -162,9 +123,7 @@ func (indexer *Indexer) AddDocToCache(doc *types.DocIndex) {
 		indexer.addCacheLock.Unlock()
 		sort.Sort(addCachedDocs)
 		indexer.AddDocs(&addCachedDocs)
-	} else {
-		indexer.addCacheLock.Unlock()
-	}
+	
 }
 
 // AddDocs 向反向索引表中加入 ADDCACHE 中所有文档

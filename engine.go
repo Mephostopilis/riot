@@ -78,8 +78,7 @@ type Engine struct {
 	indexerLookupChans []chan indexerLookupReq
 
 	// 建立排序器使用的通信通道
-	rankerAddDocChans []chan rankerAddDocReq
-	rankerRankChans   []chan rankerRankReq
+	rankerRankChans []chan rankerRankReq
 }
 
 func Default() (engine *Engine) {
@@ -148,9 +147,6 @@ func (engine *Engine) Startup() {
 	// 启动索引器和排序器
 	for shard := 0; shard < options.NumShards; shard++ {
 		go engine.indexerAddDoc(shard)
-		go engine.indexerRemoveDoc(shard)
-		go engine.rankerAddDoc(shard)
-		go engine.rankerRemoveDoc(shard)
 
 		for i := 0; i < options.NumIndexerThreads; i++ {
 			go engine.indexerLookup(shard)
@@ -222,11 +218,6 @@ func (engine *Engine) RemoveDoc(docId string) (err error) {
 		return
 	}
 	atomic.AddUint64(&engine.numRemovingReqs, 1)
-
-	for shard := 0; shard < engine.initOptions.NumShards; shard++ {
-		engine.indexerRemoveDocChans[shard] <- indexerRemoveDocReq{docId: docId}
-		engine.rankerRemoveDocChans[shard] <- rankerRemoveDocReq{docId: docId}
-	}
 	engine.dbs[0].Delete([]byte(fmt.Sprintf("doc:%s", docId)))
 	return
 }
@@ -479,17 +470,14 @@ func (engine *Engine) Flush() {
 		numRm := engine.numRemovingReqs * uint64(engine.initOptions.NumShards)
 		rmd := numRm == atomic.LoadUint64(&engine.numDocsRemoved)
 
-		nums := engine.numIndexingReqs == atomic.LoadUint64(&engine.numDocsStored)
-		stored := !engine.initOptions.StoreOpts.UseStore || nums
-
-		if inxd && rmd && stored {
+		if inxd && rmd {
 			// 保证 CHANNEL 中 REQUESTS 全部被执行完
 			break
 		}
 	}
 
 	// 强制更新，保证其为最后的请求
-	engine.IndexDoc("0", types.DocData{}, true)
+	engine.IndexDoc("0", types.DocData{})
 	for {
 		runtime.Gosched()
 

@@ -56,25 +56,13 @@ func (engine *Engine) initRanker(options *types.EngineOpts) {
 	}
 
 	// 初始消息通道
-	engine.rankerAddDocChans = make([]chan rankerAddDocReq, options.NumShards)
 	engine.rankerRankChans = make([]chan rankerRankReq, options.NumShards)
-	engine.rankerRemoveDocChans = make([]chan rankerRemoveDocReq, options.NumShards)
 	for shard := 0; shard < options.NumShards; shard++ {
-		engine.rankerAddDocChans[shard] = make(chan rankerAddDocReq, options.RankerBufLen)
 		engine.rankerRankChans[shard] = make(chan rankerRankReq, options.RankerBufLen)
-		engine.rankerRemoveDocChans[shard] = make(chan rankerRemoveDocReq, options.RankerBufLen)
 	}
 }
 
-func (engine *Engine) rankerAddDoc(shard int) {
-	for {
-		select {
-		case request := <-engine.rankerAddDocChans[shard]:
-			engine.rankers[shard].AddDoc(request.docId, request.fields, request.content, request.attri)
-		}
-	}
-}
-
+// 排序出来
 func (engine *Engine) rankerRank(shard int) {
 	for {
 		select {
@@ -85,15 +73,6 @@ func (engine *Engine) rankerRank(shard int) {
 			request.options.OutputOffset = 0
 			outputDocs, numDocs := engine.rankers[shard].Rank(request.docs, request.options, request.countDocsOnly)
 			request.rankerReturnChan <- rankerReturnReq{docs: outputDocs, numDocs: numDocs}
-		}
-	}
-}
-
-func (engine *Engine) rankerRemoveDoc(shard int) {
-	for {
-		select {
-		case request := <-engine.rankerRemoveDocChans[shard]:
-			engine.rankers[shard].RemoveDoc(request.docId)
 		}
 	}
 }

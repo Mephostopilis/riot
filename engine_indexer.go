@@ -16,14 +16,19 @@
 package riot
 
 import (
-	"sync/atomic"
-
 	"github.com/go-ego/riot/core"
 	"github.com/go-ego/riot/types"
 )
 
 type indexerAddDocReq struct {
 	doc *types.DocIndex
+
+	docId  string
+	fields interface{}
+	// new
+	content string
+	// new 属性
+	attri interface{}
 }
 
 type indexerLookupReq struct {
@@ -61,10 +66,6 @@ func (engine *Engine) indexerAddDoc(shard int) {
 		select {
 		case request := <-engine.indexerAddDocChans[shard]:
 			engine.indexers[shard].AddDocToCache(request.doc)
-			if request.doc != nil {
-				atomic.AddUint64(&engine.numTokenIndexAdded, uint64(len(request.doc.Keywords)))
-				atomic.AddUint64(&engine.numDocsIndexed, 1)
-			}
 		}
 	}
 }

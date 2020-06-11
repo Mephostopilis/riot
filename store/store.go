@@ -38,7 +38,6 @@ func RegisterStore(name string, fn func(path string) (Store, error)) {
 
 // Store is store interface
 type Store interface {
-	// type KVBatch interface {
 	Set(k, v []byte) error
 	Get(k []byte) ([]byte, error)
 	Delete(k []byte) error
